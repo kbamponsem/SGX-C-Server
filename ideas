@@ -1,0 +1,6 @@
+user
+    balance
+    name
+    id
+
+create_account(name, id)
