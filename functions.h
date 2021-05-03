@@ -1,67 +1,26 @@
 #include <stdio.h>
 #include <string.h>
 #include "types.h"
+#include "utils.h"
 
-size_t generate_account_number()
-{
-    return 1000000000 + rand() / (RAND_MAX / (2000000000 - 1000000000 + 1) + 1);
-}
-void to_string(json_t *obj)
-{
-    const char *key;
-    json_t *value;
-    json_object_foreach(obj, key, value)
-    {
-        fprintf(stderr, "%s, %s\n", key, json_string_value(value));
-    }
-}
 void initialize_accounts(Bank *bank)
 {
 
     for (size_t i = 0; i < bank->size; i++)
     {
-        Account *user = (Account *)calloc(1, sizeof(Account));
+        Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
+        Account_B *balance = (Account_B *)calloc(1, sizeof(Account_B));
+
         user->username = NULL;
         user->account_number = 0;
-        user->balance = 0.0;
 
-        bank->accounts[i] = user;
+        balance->account_number = 0;
+        balance->balance = 0.0;
+
+        bank->users[i] = user;
+        bank->balances[i] = balance;
     }
 }
-json_t *get_all_accounts(Bank *bank)
-{
-    json_t *results = json_array();
-    int i;
-
-    if (bank == NULL)
-    {
-        return json_array();
-    }
-    else
-    {
-        for (i = 0; i < bank->size; i++)
-        {
-            Account *user = bank->accounts[i];
-            json_t *obj = json_object();
-
-            if (user->username == NULL && user->account_number == 0)
-                continue;
-            else
-            {
-
-                json_object_set_new(obj, "username", json_string(user->username));
-                json_object_set_new(obj, "account_number", json_integer(user->account_number));
-                json_object_set_new(obj, "balance", json_real(user->balance));
-            }
-
-            json_array_append(results, obj);
-            json_decref(obj);
-        }
-
-        return results;
-    }
-}
-
 void show_accounts(Bank *bank)
 {
     size_t list_size = bank->size;
@@ -70,14 +29,65 @@ void show_accounts(Bank *bank)
 
     for (i = 0; i < list_size; i++)
     {
-        if (bank->accounts[i]->username != NULL && bank->accounts[i]->account_number != 0)
-            printf("%s, %lu, %0.2f\n", bank->accounts[i]->username, bank->accounts[i]->account_number, bank->accounts[i]->balance);
+        if ((bank->users[i]->username != NULL && bank->users[i]->account_number != 0) || (bank->balances[i]->balance == 0.0 && bank->balances[i]->account_number != 0))
+        {
+            printf("%s, %lu\n", bank->users[i]->username, bank->users[i]->account_number);
+            printf("%lu, %0.2f\n", bank->balances[i]->account_number, bank->balances[i]->balance);
+        }
+
         else
             continue;
     }
 }
+json_t *get_all_accounts(Bank *bank)
+{
+    json_t *users = json_array();
+    json_t *balances = json_array();
+    json_t *results = json_object();
 
-int add_account(Bank *bank, Account *user)
+    int i;
+
+    if (bank == NULL)
+    {
+        return json_object();
+    }
+    else
+    {
+
+        for (i = 0; i < bank->size; i++)
+        {
+            Account_U *user = bank->users[i];
+            Account_B *balance = bank->balances[i];
+
+            json_t *user_obj = json_object();
+            json_t *balance_obj = json_object();
+
+            if ((user->username == NULL && user->account_number == 0) || (balance->account_number == 0 && balance->balance == 0.0))
+                continue;
+            else
+            {
+
+                show_message("--retrieving working--");
+
+                json_object_set_new(user_obj, "username", json_string(user->username));
+                json_object_set_new(user_obj, "account_number", json_integer(user->account_number));
+
+                json_object_set_new(balance_obj, "balance", json_real(balance->balance));
+                json_object_set_new(balance_obj, "account_number", json_integer(balance->account_number));
+
+                json_array_append_new(users, user_obj);
+                json_array_append_new(balances, balance_obj);
+
+            }
+        }
+
+        json_object_set_new(results, "users", users);
+        json_object_set_new(results, "balances", balances);
+        return results;
+    }
+}
+
+int add_account(Bank *bank, Account_U *user, Account_B *balance)
 {
     if (bank == NULL)
     {
@@ -87,19 +97,28 @@ int add_account(Bank *bank, Account *user)
 
     size_t new_list_size = curr_list_size + 1;
 
-    Account **curr_users = bank->accounts;
+    Account_U **curr_users = bank->users;
+    Account_B **curr_balances = bank->balances;
 
-    Account **new_accounts = (Account **)calloc(new_list_size, sizeof(Account *));
+    Account_U **new_users = (Account_U **)calloc(new_list_size, sizeof(Account_U *));
+    Account_B **new_balances = (Account_B **)calloc(new_list_size, sizeof(Account_B *));
 
     int i;
 
     for (i = 0; i < curr_list_size; i++)
     {
-        new_accounts[i] = curr_users[i];
+
+        new_users[i] = curr_users[i];
+        new_balances[i] = curr_balances[i];
     }
 
-    bank->accounts = new_accounts;
-    bank->accounts[curr_list_size] = user;
+    bank->users = new_users;
+    bank->balances = new_balances;
+
+    show_message("--adding-to-users-and-balances--");
+    bank->users[curr_list_size] = user;
+    bank->balances[curr_list_size] = balance;
+
     bank->size = new_list_size;
 
     return 1;
@@ -111,9 +130,9 @@ int delete_account(Bank *bank, size_t identifier)
 
     for (size_t i = 0; i < curr_list_size; i++)
     {
-        Account *user = (Account *)calloc(1, sizeof(Account));
+        Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
 
-        user = bank->accounts[i];
+        user = bank->users[i];
 
         if (user->username != NULL && user->account_number != 0)
         {
@@ -123,7 +142,7 @@ int delete_account(Bank *bank, size_t identifier)
                 user->username = NULL;
                 user->account_number = 0;
 
-                bank->accounts[i] = user;
+                bank->users[i] = user;
                 return 1;
             }
         }
@@ -136,29 +155,32 @@ int operation(Bank *bank, size_t account_number, float amount, const char *type)
 {
     size_t curr_list_size = bank->size;
 
+    // show_message(strcat(strcat("--operation-",type), "--"));
     for (size_t i = 0; i < curr_list_size; i++)
     {
-        Account *user = (Account *)calloc(1, sizeof(Account));
+        Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
+        Account_B *_balance = (Account_B *)calloc(1, sizeof(Account_B));
 
-        user = bank->accounts[i];
+        // user = bank->users[i];
+        _balance = bank->balances[i];
 
-        if (user->username != NULL && user->account_number != 0)
+        if ( (_balance->account_number != 0))
         {
-            if (user->account_number == account_number)
+            if (_balance->account_number == account_number)
             {
                 if (strcmp(type, "WITHDRAW") == 0)
                 {
-                    if (user->balance > 0)
+                    if (_balance->balance > 0)
                     {
-                        user->balance -= amount;
-                        bank->accounts[i] = user;
+                        _balance->balance = _balance->balance - amount;
+                        bank->balances[i] = _balance;
                         return 1;
                     }
                 }
                 else if (strcmp(type, "DEPOSIT") == 0)
                 {
-                    user->balance += amount;
-                    bank->accounts[i] = user;
+                    _balance->balance = _balance->balance + amount;
+                    bank->balances[i] = _balance;
                     return 1;
                 }
             }

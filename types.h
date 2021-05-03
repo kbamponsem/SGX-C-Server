@@ -5,15 +5,22 @@
 #define FILE_TO_LARGE 2
 #define FILE_READ_ERROR 3
 
-typedef struct
-{
-    const char *username;
-    float balance;
-    size_t account_number;
-} Account;
 
 typedef struct
 {
-    Account **accounts;
+    const char *username;
+    size_t account_number;
+} Account_U;
+
+typedef struct
+{
+    float balance;
+    size_t account_number;
+} Account_B;
+
+typedef struct
+{
+    Account_U** users;
+    Account_B** balances;
     size_t size;
 } Bank;

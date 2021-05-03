@@ -7,7 +7,7 @@ void initialize_accounts(Bank *bank);
 
 void show_accounts(Bank *bank);
 
-int add_account(Bank *bank, Account *user);
+// int add_account(Bank *bank, Account *user);
 
 int delete_account(Bank *bank, size_t identifier);
 
@@ -24,12 +24,14 @@ int main(int argc, char **argv)
         return (1);
     }
 
-    bank->accounts = (Account **)malloc(sizeof(Account *));
+    bank->users = (Account_U **)malloc(sizeof(Account_U *));
+    bank->balances = (Account_B **)malloc(sizeof(Account_B *));
+
     bank->size = 1;
 
     initialize_accounts(bank);
 
-    if (bank->accounts == NULL)
+    if (bank->users == NULL || bank->balances == NULL)
     {
         fprintf(stderr, "Unable to allocate memory for accounts\n");
         return (1);

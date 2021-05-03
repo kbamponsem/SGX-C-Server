@@ -5,7 +5,10 @@ LINKS=-lulfius -ljansson
 compile:
 	$(CC) -o server server.c $(LINKS)
 
-all: compile
+all: compile run
 
+run:
+	./server 8080
+	
 clean:
 	rm server

@@ -35,13 +35,19 @@ int callback_add_account(const struct _u_request *request, struct _u_response *r
     const char *username = json_string_value(json_object_get(req_obj, "username"));
     float balance = json_number_value(json_object_get(req_obj, "balance"));
 
-    Account *user = (Account *)calloc(1, sizeof(Account));
+    Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
+    Account_B *_balance = (Account_B *)calloc(1, sizeof(Account_B));
+
+    size_t user_id = generate_account_number();
 
     user->username = username;
-    user->balance = balance;
-    user->account_number = generate_account_number();
+    user->account_number = user_id;
 
-    int resp = add_account(bank, user);
+    _balance->balance = balance;
+    _balance->account_number = user_id;
+    
+
+    int resp = add_account(bank, user, _balance);
 
     if (resp == 1)
         ulfius_set_string_body_response(response, 200, "{\"message\": \"ok\"}");
@@ -76,13 +82,12 @@ int callback_deposit(const struct _u_request *request, struct _u_response *respo
     return U_CALLBACK_CONTINUE;
 }
 
-struct _u_endpoint* create_route(   char* http_method,   
-                                    unsigned int priority, 
-                                    int (*callback_function)(const struct _u_request *request, struct _u_response *response, void *user_data),
-                                    char* url_format,
-                                    char* url_prefix,
-                                    void* user_data
-                                )
+struct _u_endpoint *create_route(char *http_method,
+                                 unsigned int priority,
+                                 int (*callback_function)(const struct _u_request *request, struct _u_response *response, void *user_data),
+                                 char *url_format,
+                                 char *url_prefix,
+                                 void *user_data)
 {
     struct _u_endpoint *endpoint = (struct _u_endpoint *)calloc(1, sizeof(struct _u_endpoint));
     endpoint->http_method = http_method;
@@ -99,7 +104,7 @@ const struct _u_endpoint **setup_routes(void *data)
 {
     const struct _u_endpoint **endpoints = (const struct _u_endpoint **)malloc(6 * sizeof(struct _u_endpoint *));
 
-    endpoints[0] = create_route("GET", 0, callback_get_all_accounts, NULL, "/accounts", (Bank*) data);
+    endpoints[0] = create_route("GET", 0, callback_get_all_accounts, NULL, "/accounts", (Bank *)data);
     endpoints[1] = create_route("POST", 0, callback_add_account, NULL, "/add-account", (Bank*) data);
     endpoints[2] = create_route("POST", 0, callback_delete_account, NULL, "/delete-account", (Bank*) data);
     endpoints[3] = create_route("POST", 0, callback_withdraw, NULL, "/withdraw", (Bank*) data);
