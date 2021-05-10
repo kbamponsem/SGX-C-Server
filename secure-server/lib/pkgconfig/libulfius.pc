@@ -1,0 +1,13 @@
+prefix=/usr/local
+exec_prefix=/usr/local
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: ulfius
+Description: Web Framework to build REST APIs, Webservices or any HTTP endpoint in C language. Can stream large amount of data, integrate JSON data with Jansson, and create websocket services
+URL: https://github.com/babelouest/ulfius/issues
+Version: 2.7.3
+Requires: 
+Requires.private: 
+Libs: -L${libdir} -lulfius -lorcania -lyder -lmicrohttpd -lpthread -lz -lyder -ljansson -lcurl -lgnutls
+Cflags: -I${includedir}
