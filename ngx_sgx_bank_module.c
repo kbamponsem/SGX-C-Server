@@ -8,6 +8,7 @@
 static char *ngx_get_all_accounts(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS);
 
 void ngx_add_account_func(ngx_http_request_t *r);
 void ngx_delete_account_func(ngx_http_request_t *r);
@@ -170,42 +171,14 @@ void ngx_add_account_func(ngx_http_request_t *r)
 
 	int RESULTS = add_account(&bank, user, balance);
 
-	json_t *response = json_object();
-
-	json_object_set_new(response, "message", json_string(RESULTS == 1 ? "User added successfully!" : "Error occurred!"));
-
-	u_char *response_string = (u_char *)json_dumps(response, 0);
-	size_t sz = strlen(response_string);
-
-	b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
-	if (b == NULL)
-	{
-		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-		return;
-	}
-	b->pos = response_string;
-	b->last = response_string + sz;
-	b->last_buf = (r == r->main) ? 1 : 0;
-	b->last_in_chain = 1;
-
-	r->headers_out.status = RESULTS == 1 ? NGX_HTTP_OK : NGX_HTTP_BAD_REQUEST;
-	r->headers_out.content_length_n = b->last - b->pos;
-
-	rc = ngx_http_send_header(r);
-
-	if (rc == NGX_ERROR || rc > NGX_OK || r->header_only)
-	{
-		ngx_http_finalize_request(r, rc);
-		return;
-	}
-
-	out.buf = b;
+	out.buf = generate_output(r, RESULTS);
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);
 
 	ngx_http_finalize_request(r, rc);
 }
+
 
 void ngx_delete_account_func(ngx_http_request_t *r)
 {
@@ -231,8 +204,6 @@ void ngx_delete_account_func(ngx_http_request_t *r)
 	fprintf(stderr, "Account Number: %lld\n", account_number_value);
 	int RESULTS = delete_account(&bank, json_integer_value(account_number));
 
-	
-
 	json_t *response = json_object();
 
 	json_object_set_new(response, "message", json_string(RESULTS == 1 ? "User deleted successfully!" : "User not found!"));
@@ -240,29 +211,9 @@ void ngx_delete_account_func(ngx_http_request_t *r)
 	u_char *response_string = (u_char *)json_dumps(response, 0);
 	size_t sz = strlen(response_string);
 
-	b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
-	if (b == NULL)
-	{
-		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-		return;
-	}
-	b->pos = response_string;
-	b->last = response_string + sz;
-	b->last_buf = (r == r->main) ? 1 : 0;
-	b->last_in_chain = 1;
+	
 
-	r->headers_out.status = RESULTS == 1 ? NGX_HTTP_OK : 203;
-	r->headers_out.content_length_n = b->last - b->pos;
-
-	rc = ngx_http_send_header(r);
-
-	if (rc == NGX_ERROR || rc > NGX_OK || r->header_only)
-	{
-		ngx_http_finalize_request(r, rc);
-		return;
-	}
-
-	out.buf = b;
+	out.buf = generate_output(r, RESULTS);
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);
@@ -294,3 +245,38 @@ static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	return NGX_CONF_OK;
 }
 
+ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS)
+{
+	ngx_int_t rc;
+
+	json_t *response = json_object();
+
+	json_object_set_new(response, "message", json_string(STATUS == 1 ? "SUCCESS" : "ERROR"));
+
+	u_char *response_string = (u_char *)json_dumps(response, 0);
+	size_t sz = strlen(response_string);
+	ngx_buf_t *b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
+
+	b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
+	if (b == NULL)
+	{
+		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+		return NULL;
+	}
+	b->pos = response_string;
+	b->last = response_string + sz;
+	b->last_buf = (r == r->main) ? 1 : 0;
+	b->last_in_chain = 1;
+
+	r->headers_out.status = STATUS == 1 ? NGX_HTTP_OK : 203;
+	r->headers_out.content_length_n = b->last - b->pos;
+
+	rc = ngx_http_send_header(r);
+
+	if (rc == NGX_ERROR || rc > NGX_OK || r->header_only)
+	{
+		ngx_http_finalize_request(r, rc);
+		return NULL;
+	}
+	return b;
+}
