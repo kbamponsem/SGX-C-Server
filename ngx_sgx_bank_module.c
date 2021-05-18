@@ -5,13 +5,25 @@
 #include "functions.h"
 #include <jansson.h>
 
+/* Content-Type */
+ngx_http_request_t* setup_content_type(ngx_http_request_t* r) {
+
+	r->headers_out.content_type.len = strlen("application/json") - 1;
+	r->headers_out.content_type.data = (u_char *)"application/json";
+
+	return r;
+}
+
 static char *ngx_get_all_accounts(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS);
 
 void ngx_add_account_func(ngx_http_request_t *r);
 void ngx_delete_account_func(ngx_http_request_t *r);
+void ngx_operation_func(ngx_http_request_t *r);
+
 static Bank *bank = NULL;
 
 static ngx_command_t ngx_sgx_bank_module_commands[] = {
@@ -30,6 +42,12 @@ static ngx_command_t ngx_sgx_bank_module_commands[] = {
 	{ngx_string("delete_account"),
 	 NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
 	 ngx_delete_account,
+	 0,
+	 0,
+	 NULL},
+	{ngx_string("operation"),
+	 NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
+	 ngx_operation,
 	 0,
 	 0,
 	 NULL},
@@ -61,34 +79,27 @@ ngx_module_t ngx_sgx_bank_module = {
 
 static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 {
-
-	const json_t *results = get_all_accounts(bank);
+	const json_t *results = get_all_accounts(&bank);
 
 	u_char *all_accounts = (u_char *)json_dumps(results, 0);
 	size_t sz = strlen(all_accounts);
 
-	r->headers_out.content_type.len = strlen("application/json") - 1;
-	r->headers_out.content_type.data = (u_char *)"application/json";
 	r->headers_out.status = NGX_HTTP_OK;
-	r->headers_out.content_length_n = sz;
-	ngx_http_send_header(r);
+	ngx_http_send_header(setup_content_type(r));
 
 	ngx_buf_t *b;
-	ngx_chain_t *out;
+	ngx_chain_t out;
 
-	b = ngx_calloc_buf(r->pool);
-
-	out = ngx_alloc_chain_link(r->pool);
-
-	out->buf = b;
-	out->next = NULL;
-
+	b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
 	b->pos = all_accounts;
 	b->last = all_accounts + sz;
-	b->memory = 1;
-	b->last_buf = 1;
+	b->last_buf = (r == r->main) ? 1 : 0;
+	b->last_in_chain = 1;
 
-	return ngx_http_output_filter(r, out);
+	out.buf = b;
+	out.next = NULL;
+
+	return ngx_http_output_filter(r, &out);
 }
 
 static ngx_int_t ngx_callback_add_account(ngx_http_request_t *r)
@@ -99,7 +110,6 @@ static ngx_int_t ngx_callback_add_account(ngx_http_request_t *r)
 
 	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
 	{
-		/* error */
 		return rc;
 	}
 
@@ -112,17 +122,58 @@ static ngx_int_t ngx_callback_delete_account(ngx_http_request_t *r)
 {
 	ngx_int_t rc;
 
+
 	rc = ngx_http_read_client_request_body(r, ngx_delete_account_func);
 
 	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
 	{
-		/* error */
 		return rc;
 	}
 
-	show_accounts(bank);
+	return NGX_DONE;
+}
+
+static ngx_int_t ngx_callback_operation(ngx_http_request_t *r)
+{
+	ngx_int_t rc;
+
+	rc = ngx_http_read_client_request_body(r, ngx_operation_func);
+
+	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
+	{
+		return rc;
+	}
 
 	return NGX_DONE;
+}
+
+void ngx_operation_func(ngx_http_request_t *r) {
+	ngx_int_t rc;
+	ngx_chain_t out;
+
+	if (r->request_body == NULL)
+	{
+		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+		return;
+	}
+
+	char* req_body = trim_string((char*) r->request_body->bufs->buf->pos);
+
+	json_t* req_obj = json_loads(req_body, 0, NULL);
+
+	big_int account_number = json_integer_value(json_object_get(req_obj, "account_number"));
+	const char* type = json_string_value(json_object_get(req_obj, "type"));
+	float amount = (float) json_number_value(json_object_get(req_obj, "amount"));
+
+	int RESULTS = operation(&bank, account_number, amount, type);
+
+	out.buf = generate_output(r, RESULTS);
+	out.next = NULL;
+
+	rc = ngx_http_output_filter(r, &out);
+
+
+	ngx_http_finalize_request(r, rc);
 }
 void print_u_char(u_char *buf)
 {
@@ -138,10 +189,8 @@ void print_u_char(u_char *buf)
 
 void ngx_add_account_func(ngx_http_request_t *r)
 {
-	off_t len;
-	ngx_buf_t *b;
 	ngx_int_t rc;
-	ngx_chain_t *in, out;
+	ngx_chain_t out;
 
 	if (r->request_body == NULL)
 	{
@@ -149,8 +198,8 @@ void ngx_add_account_func(ngx_http_request_t *r)
 		return;
 	}
 
-	len = 0;
-	char *req_body = (char *)r->request_body->bufs->buf->pos;
+	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
+
 	json_t *req_obj = json_loads(req_body, 0, NULL);
 
 	json_t *name = json_object_get(req_obj, "name");
@@ -179,13 +228,10 @@ void ngx_add_account_func(ngx_http_request_t *r)
 	ngx_http_finalize_request(r, rc);
 }
 
-
 void ngx_delete_account_func(ngx_http_request_t *r)
 {
-	off_t len;
-	ngx_buf_t *b;
 	ngx_int_t rc;
-	ngx_chain_t *in, out;
+	ngx_chain_t out;
 
 	if (r->request_body == NULL)
 	{
@@ -193,8 +239,8 @@ void ngx_delete_account_func(ngx_http_request_t *r)
 		return;
 	}
 
-	len = 0;
-	char *req_body = (char *)r->request_body->bufs->buf->pos;
+	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
+
 	json_t *req_obj = json_loads(req_body, 0, NULL);
 
 	json_t *account_number = json_object_get(req_obj, "account_number");
@@ -202,16 +248,12 @@ void ngx_delete_account_func(ngx_http_request_t *r)
 	big_int account_number_value = json_integer_value(account_number);
 
 	fprintf(stderr, "Account Number: %lld\n", account_number_value);
+
 	int RESULTS = delete_account(&bank, json_integer_value(account_number));
 
 	json_t *response = json_object();
 
 	json_object_set_new(response, "message", json_string(RESULTS == 1 ? "User deleted successfully!" : "User not found!"));
-
-	u_char *response_string = (u_char *)json_dumps(response, 0);
-	size_t sz = strlen(response_string);
-
-	
 
 	out.buf = generate_output(r, RESULTS);
 	out.next = NULL;
@@ -245,6 +287,13 @@ static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	return NGX_CONF_OK;
 }
 
+static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+	ngx_http_core_loc_conf_t *clcf;
+	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+	clcf->handler = ngx_callback_operation;
+	return NGX_CONF_OK;
+}
 ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS)
 {
 	ngx_int_t rc;

@@ -57,22 +57,25 @@ void show_accounts(Bank *bank)
     }
 }
 
-json_t *get_all_accounts(Bank *bank)
+json_t *get_all_accounts(Bank **bank)
 {
     json_t *users = json_array();
     json_t *balances = json_array();
     json_t *results = json_object();
 
-    if (bank == NULL)
+    if (*bank == NULL)
     {
-        return json_object();
+
+        json_object_set_new(results, "users", users);
+        json_object_set_new(results, "balances", balances);
+        return results;
     }
     else
     {
-        for (size_t i = 0; i < bank->size; i++)
+        for (size_t i = 0; i < (*bank)->size; i++)
         {
-            Account_U *user = bank->users[i];
-            Account_B *balance = bank->balances[i];
+            Account_U *user = (*bank)->users[i];
+            Account_B *balance = (*bank)->balances[i];
 
             json_t *user_obj = json_object();
             json_t *balance_obj = json_object();
@@ -111,6 +114,7 @@ int add_account(Bank **bank, Account_U *user, Account_B *balance)
 
     size_t new_list_size = curr_list_size + 1;
 
+    if(user->username != NULL) {
     Account_U **curr_users = (*bank)->users;
     Account_B **curr_balances = (*bank)->balances;
 
@@ -134,6 +138,9 @@ int add_account(Bank **bank, Account_U *user, Account_B *balance)
     (*bank)->size = new_list_size;
 
     return 1;
+    }
+    else 
+    return 0;
 }
 
 int delete_account(Bank **bank, big_int identifier)
@@ -168,15 +175,20 @@ int delete_account(Bank **bank, big_int identifier)
 
 int operation(Bank **bank, big_int account_number, float amount, const char *type)
 {
+    if(*bank == NULL){
+        return 0;
+    }
+
+    if (amount < 0) {
+        return 0;
+    }
     size_t curr_list_size = (*bank)->size;
 
     // show_message(strcat(strcat("--operation-",type), "--"));
     for (size_t i = 0; i < curr_list_size; i++)
     {
-        Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
         Account_B *_balance = (Account_B *)calloc(1, sizeof(Account_B));
 
-        // user = bank->users[i];
         _balance = (*bank)->balances[i];
 
         if ( (_balance->account_number != 0))
