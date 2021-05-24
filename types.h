@@ -7,7 +7,6 @@
 
 typedef long long big_int;
 
-
 typedef struct
 {
     const char *username;
@@ -22,7 +21,19 @@ typedef struct
 
 typedef struct
 {
-    Account_U** users;
-    Account_B** balances;
+    Account_U **users;
+    Account_B **balances;
     size_t size;
 } Bank;
+
+typedef struct
+{
+    Account_U **users;
+    size_t size;
+} All_Users;
+
+typedef struct
+{
+    Account_B **balances;
+    size_t size;
+} All_Balances;

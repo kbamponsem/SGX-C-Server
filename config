@@ -13,5 +13,6 @@ HTTP_MODULES="$HTTP_MODULES ngx_sgx_bank_module"
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_sgx_bank_module.c"
 fi
 
-CORE_LIBS="$CORE_LIBS /usr/lib/x86_64-linux-gnu/libjansson.a"
-CFLAGS="$CFLAGS -Wno-pointer-sign -Wno-unsed-variable -Wno-type-limits"
+CORE_LIBS="$CORE_LIBS /usr/lib/x86_64-linux-gnu/libjansson.a -lsgx_urts"
+CFLAGS="$CFLAGS -Wno-pointer-sign -Wno-unsed-variable -Wno-type-limits -Wimplicit-fallthrough=0"
+SGX_SDK=/opt/intel/sgxsdk

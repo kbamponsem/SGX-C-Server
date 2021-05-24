@@ -33,7 +33,7 @@ char *remove_garbage_chars(char *str)
     size_t str_len = strlen(str);
     fprintf(stderr, "%s -> (%s, %lu)\n", __func__, str, str_len);
     size_t end = 0;
-    for (size_t i = str_len -1 ; i > 0; i--)
+    for (size_t i = str_len - 1; i > 0; i--)
     {
         if (str[i] == '}')
         {
@@ -66,4 +66,18 @@ char *trim_string(char *str)
     }
     else
         return str;
+}
+
+void save_data(Bank **bank)
+{
+    FILE *fp = fopen("nginx_sgx_bank/storage.dat", "w");
+
+    if (*bank != NULL)
+    {
+        exit(1);
+    }
+    for (size_t i = 0; i > (*bank)->size; i++)
+    {
+        fprintf(fp, "%s\t%lld\t%f\n", (*bank)->users[i]->username, (*bank)->balances[i]->account_number, (*bank)->balances[i]->balance);
+    }
 }

@@ -6,7 +6,8 @@
 #include <jansson.h>
 
 /* Content-Type */
-ngx_http_request_t* setup_content_type(ngx_http_request_t* r) {
+ngx_http_request_t *setup_content_type(ngx_http_request_t *r)
+{
 
 	r->headers_out.content_type.len = strlen("application/json") - 1;
 	r->headers_out.content_type.data = (u_char *)"application/json";
@@ -18,13 +19,15 @@ static char *ngx_get_all_accounts(ngx_conf_t *cf, ngx_command_t *cmd, void *conf
 static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS);
+ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type);
 
 void ngx_add_account_func(ngx_http_request_t *r);
 void ngx_delete_account_func(ngx_http_request_t *r);
 void ngx_operation_func(ngx_http_request_t *r);
 
 static Bank *bank = NULL;
+static All_Users *all_users = NULL;
+static All_Balances *all_balances = NULL;
 
 static ngx_command_t ngx_sgx_bank_module_commands[] = {
 	{ngx_string("get_all_accounts"),
@@ -79,7 +82,7 @@ ngx_module_t ngx_sgx_bank_module = {
 
 static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 {
-	const json_t *results = get_all_accounts(&bank);
+	const json_t *results = get_all_accounts(&all_users, &all_balances);
 
 	u_char *all_accounts = (u_char *)json_dumps(results, 0);
 	size_t sz = strlen(all_accounts);
@@ -91,6 +94,7 @@ static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 	ngx_chain_t out;
 
 	b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
+
 	b->pos = all_accounts;
 	b->last = all_accounts + sz;
 	b->last_buf = (r == r->main) ? 1 : 0;
@@ -113,7 +117,7 @@ static ngx_int_t ngx_callback_add_account(ngx_http_request_t *r)
 		return rc;
 	}
 
-	show_accounts(bank);
+	// show_accounts(bank);
 
 	return NGX_DONE;
 }
@@ -121,7 +125,6 @@ static ngx_int_t ngx_callback_add_account(ngx_http_request_t *r)
 static ngx_int_t ngx_callback_delete_account(ngx_http_request_t *r)
 {
 	ngx_int_t rc;
-
 
 	rc = ngx_http_read_client_request_body(r, ngx_delete_account_func);
 
@@ -147,7 +150,8 @@ static ngx_int_t ngx_callback_operation(ngx_http_request_t *r)
 	return NGX_DONE;
 }
 
-void ngx_operation_func(ngx_http_request_t *r) {
+void ngx_operation_func(ngx_http_request_t *r)
+{
 	ngx_int_t rc;
 	ngx_chain_t out;
 
@@ -157,24 +161,24 @@ void ngx_operation_func(ngx_http_request_t *r) {
 		return;
 	}
 
-	char* req_body = trim_string((char*) r->request_body->bufs->buf->pos);
+	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
 
-	json_t* req_obj = json_loads(req_body, 0, NULL);
+	json_t *req_obj = json_loads(req_body, 0, NULL);
 
 	big_int account_number = json_integer_value(json_object_get(req_obj, "account_number"));
-	const char* type = json_string_value(json_object_get(req_obj, "type"));
-	float amount = (float) json_number_value(json_object_get(req_obj, "amount"));
+	const char *type = json_string_value(json_object_get(req_obj, "type"));
+	float amount = (float)json_number_value(json_object_get(req_obj, "amount"));
 
-	int RESULTS = operation(&bank, account_number, amount, type);
+	int RESULTS = operation(&all_balances, account_number, amount, type);
 
-	out.buf = generate_output(r, RESULTS);
+	out.buf = generate_output(r, RESULTS, NULL, NULL);
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);
 
-
 	ngx_http_finalize_request(r, rc);
 }
+
 void print_u_char(u_char *buf)
 {
 	size_t len = strlen(buf);
@@ -218,9 +222,9 @@ void ngx_add_account_func(ngx_http_request_t *r)
 	balance->balance = (float)json_real_value(amount);
 	balance->account_number = acc_number;
 
-	int RESULTS = add_account(&bank, user, balance);
+	int RESULTS = add_account(&all_users, &all_balances, user, balance);
 
-	out.buf = generate_output(r, RESULTS);
+	out.buf = generate_output(r, RESULTS, &acc_number, "/add");
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);
@@ -249,13 +253,13 @@ void ngx_delete_account_func(ngx_http_request_t *r)
 
 	fprintf(stderr, "Account Number: %lld\n", account_number_value);
 
-	int RESULTS = delete_account(&bank, json_integer_value(account_number));
+	int RESULTS = delete_account(&all_users, &all_balances, json_integer_value(account_number));
 
 	json_t *response = json_object();
 
 	json_object_set_new(response, "message", json_string(RESULTS == 1 ? "User deleted successfully!" : "User not found!"));
 
-	out.buf = generate_output(r, RESULTS);
+	out.buf = generate_output(r, RESULTS, NULL, NULL);
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);
@@ -294,13 +298,22 @@ static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	clcf->handler = ngx_callback_operation;
 	return NGX_CONF_OK;
 }
-ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS)
+
+ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type)
 {
 	ngx_int_t rc;
+	big_int *acccount_number = 0UL;
+	if (data != NULL)
+	{
+		acccount_number = (big_int *)data;
+	}
 
 	json_t *response = json_object();
 
 	json_object_set_new(response, "message", json_string(STATUS == 1 ? "SUCCESS" : "ERROR"));
+	if (request_type != NULL)
+		if (strcmp(request_type, "/add") == 0 && STATUS == 1)
+			json_object_set_new(response, "account_number", json_integer(*acccount_number));
 
 	u_char *response_string = (u_char *)json_dumps(response, 0);
 	size_t sz = strlen(response_string);
@@ -320,7 +333,7 @@ ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS)
 	r->headers_out.status = STATUS == 1 ? NGX_HTTP_OK : 203;
 	r->headers_out.content_length_n = b->last - b->pos;
 
-	rc = ngx_http_send_header(r);
+	rc = ngx_http_send_header(setup_content_type(r));
 
 	if (rc == NGX_ERROR || rc > NGX_OK || r->header_only)
 	{
