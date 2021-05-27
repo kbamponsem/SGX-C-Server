@@ -4,6 +4,7 @@
 #include <malloc.h>
 #include "functions.h"
 #include <jansson.h>
+#include <pthread.h>
 
 /* Content-Type */
 ngx_http_request_t *setup_content_type(ngx_http_request_t *r)
@@ -20,6 +21,7 @@ static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type);
+static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *);
 
 void ngx_add_account_func(ngx_http_request_t *r);
 void ngx_delete_account_func(ngx_http_request_t *r);
@@ -57,7 +59,7 @@ static ngx_command_t ngx_sgx_bank_module_commands[] = {
 	ngx_null_command};
 
 static ngx_http_module_t ngx_sgx_bank_module_ctx = {
-	NULL,
+	ngx_http_create_enclaves,
 	NULL,
 	NULL,
 	NULL,
@@ -102,6 +104,8 @@ static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 
 	out.buf = b;
 	out.next = NULL;
+
+	// fprintf(stderr, "%d\n", sgx_is_within_enclave(&all_users, sizeof(all_users)));
 
 	return ngx_http_output_filter(r, &out);
 }
@@ -325,6 +329,7 @@ ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *
 		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
 		return NULL;
 	}
+
 	b->pos = response_string;
 	b->last = response_string + sz;
 	b->last_buf = (r == r->main) ? 1 : 0;
@@ -341,4 +346,14 @@ ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *
 		return NULL;
 	}
 	return b;
+}
+
+static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *cf)
+{
+	// int results = command_to_shell("cd /home/kwabena/Projects/SGX/Exercise_SGX/part1;", "make clean && make;" ; sleep 10\'");
+	int results = command_to_shell("%s %s %s", "cd /home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclave1; ", "make clean && make; ", "./app; ");
+	results = command_to_shell("%s %s %s", "cd /home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclave2; ", "make clean && make; ", "./app; ");
+
+	fprintf(stderr, "Pre-config: [ %d ]\n", results);
+	return NGX_OK;
 }

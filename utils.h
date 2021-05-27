@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <jansson.h>
+#include <stdarg.h>
 
 void show_message(char *message)
 {
@@ -80,4 +81,42 @@ void save_data(Bank **bank)
     {
         fprintf(fp, "%s\t%lld\t%f\n", (*bank)->users[i]->username, (*bank)->balances[i]->account_number, (*bank)->balances[i]->balance);
     }
+}
+
+char* add_semi_colon(char* str){
+    strcat(str, "; ");
+    return str;
+}
+
+char* strappend(char* dest, char* src) {
+    size_t src_len = strlen(src);
+    size_t dest_len = strlen(dest);
+
+    char* __temp = dest;
+
+    dest = (char*) calloc(dest_len+src_len, sizeof(char));
+
+    strcpy(dest, __temp);
+    strcat(dest, src);
+
+    return dest;
+}
+int command_to_shell(const char *format, ...)
+{
+    char buf[BUFSIZ] = {'\0'};
+    va_list ap;
+    va_start(ap, format);
+    int r = vsnprintf(buf, BUFSIZ, format, ap);
+    va_end(ap);
+
+    char *base_command = "gnome-terminal -- /bin/sh -c \'";
+    char* end = "sleep 10;\'";
+    
+    char* command = strappend(strappend(base_command, buf), end);
+    
+    fprintf(stderr, "Command: %s\n", command);
+
+    int results = system(command);
+    
+    return results;
 }
