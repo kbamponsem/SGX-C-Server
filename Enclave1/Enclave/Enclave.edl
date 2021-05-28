@@ -32,7 +32,14 @@
 /* Enclave.edl - Top EDL file. */
 
 enclave {
+    // from "/opt/intel/sgxssl/include/sgx_tsgxssl.edl" import *;
+    include "/opt/intel/sgxssl/include/openssl/ssl.h"
+
     trusted {
         public double secure_add(double a, double b);
+        public void ecall_start_tls_server(void);
+        public SSL_CTX *create_context();
+
+
     };
 };
