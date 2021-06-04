@@ -37,6 +37,8 @@ SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
 CC=clang
 C++=clang++
+PROJ_DIR ?= /home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank
+ENCLAVES_DIR ?= Enclaves_u
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -76,24 +78,20 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-App_Cpp_Files := App/App.cpp
-App_Include_Paths := -IApp -I$(SGX_SDK)/include
-
-App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths)
+C_FLAGS := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes -I$(SGX_SDK)/include
 
 # Three configuration modes - Debug, prerelease, release
 #   Debug - Macro DEBUG enabled.
 #   Prerelease - Macro NDEBUG and EDEBUG enabled.
 #   Release - Macro NDEBUG enabled.
 ifeq ($(SGX_DEBUG), 1)
-        App_C_Flags += -DDEBUG -UNDEBUG -UEDEBUG
+        C_FLAGS += -DDEBUG -UNDEBUG -UEDEBUG
 else ifeq ($(SGX_PRERELEASE), 1)
-        App_C_Flags += -DNDEBUG -DEDEBUG -UDEBUG
+        C_FLAGS += -DNDEBUG -DEDEBUG -UDEBUG
 else
-        App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
+        C_FLAGS += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
-App_Cpp_Flags := $(App_C_Flags) -std=c++11
 App_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread 
 
 ifneq ($(SGX_MODE), HW)
@@ -140,105 +138,53 @@ Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 
 Enclave_Cpp_Objects := $(Enclave_Cpp_Files:.cpp=.o)
 
-Enclave_Name := enclave2.so
-Signed_Enclave_Name := enclave2.signed.so
+Enclave_Name := enclave.so
+Signed_Enclave_Name := enclave.signed.so
 Enclave_Config_File := Enclave/Enclave.config.xml
 
-ifeq ($(SGX_MODE), HW)
-ifeq ($(SGX_DEBUG), 1)
-	Build_Mode = HW_DEBUG
-else ifeq ($(SGX_PRERELEASE), 1)
-	Build_Mode = HW_PRERELEASE
-else
-	Build_Mode = HW_RELEASE
-endif
-else
-ifeq ($(SGX_DEBUG), 1)
-	Build_Mode = SIM_DEBUG
-else ifeq ($(SGX_PRERELEASE), 1)
-	Build_Mode = SIM_PRERELEASE
-else
-	Build_Mode = SIM_RELEASE
-endif
-endif
+######## Enclaves Objects ########
+untrusted:
+	@echo "Compiling untrusted code."
 
+	@mkdir -p $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted
+	@cp Enclave/Enclave.edl $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2
+	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted && $(SGX_EDGER8R) --untrusted ../Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include && rm ../Enclave.edl
 
-.PHONY: all run
+	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/Enclave_u.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/Enclave_u.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/Enclave_u.c"
 
-ifeq ($(Build_Mode), HW_RELEASE)
-all: .config_$(Build_Mode)_$(SGX_ARCH) $(App_Name) $(Enclave_Name)
-	@echo "The project has been built in release hardware mode."
-	@echo "Please sign the $(Enclave_Name) first with your signing key before you run the $(App_Name) to launch and access the enclave."
-	@echo "To sign the enclave use the command:"
-	@echo "   $(SGX_ENCLAVE_SIGNER) sign -key <your key> -enclave $(Enclave_Name) -out <$(Signed_Enclave_Name)> -config $(Enclave_Config_File)"
-	@echo "You can also sign the enclave using an external signing tool."
-	@echo "To build the project in simulation mode set SGX_MODE=SIM. To build the project in prerelease mode set SGX_PRERELEASE=1 and SGX_MODE=HW."
-else
-all: .config_$(Build_Mode)_$(SGX_ARCH) $(App_Name) $(Signed_Enclave_Name)
-ifeq ($(Build_Mode), HW_DEBUG)
-	@echo "The project has been built in debug hardware mode."
-else ifeq ($(Build_Mode), SIM_DEBUG)
-	@echo "The project has been built in debug simulation mode."
-else ifeq ($(Build_Mode), HW_PRERELEASE)
-	@echo "The project has been built in pre-release hardware mode."
-else ifeq ($(Build_Mode), SIM_PRERELEASE)
-	@echo "The project has been built in pre-release simulation mode."
-else
-	@echo "The project has been built in release simulation mode."
-endif
-endif
-
-run: all
-ifneq ($(Build_Mode), HW_RELEASE)
-	@$(CURDIR)/$(App_Name)
-	@echo "RUN  =>  $(App_Name) [$(SGX_MODE)|$(SGX_ARCH), OK]"
-endif
-
-######## App Objects ########
-
-App/Enclave_u.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd App && $(SGX_EDGER8R) --untrusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
-	@echo "GEN  =>  $@"
-
-App/Enclave_u.o: App/Enclave_u.c
-	@$(CC) $(App_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
-
-App/%.o: App/%.cpp
-	@$(CXX) $(App_Cpp_Flags) -c $< -o $@
-	@echo "CXX  <=  $<"
-
-$(App_Name): App/Enclave_u.o $(App_Cpp_Objects)
-	@$(CXX) $^ -o $@ $(App_Link_Flags)
-	@echo "LINK =>  $@"
-
-.config_$(Build_Mode)_$(SGX_ARCH):
-	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
-	@touch .config_$(Build_Mode)_$(SGX_ARCH)
 
 ######## Enclave Objects ########
+trusted:
+	@echo "Compiling trusted code."
+	@cp -r Enclave $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2
+	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave && $(SGX_EDGER8R) --trusted Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
+	@cd -
+	@echo "GEN  =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.c"
 
-Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl
-	@cd Enclave && $(SGX_EDGER8R) --trusted ../Enclave/Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
-	@echo "GEN  =>  $@"
+	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.c"
 
-Enclave/Enclave_t.o: Enclave/Enclave_t.c
-	@$(CC) $(Enclave_C_Flags) -c $< -o $@
-	@echo "CC   <=  $<"
+	@$(CXX) $(Enclave_Cpp_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.o
+	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.cpp"
 
-Enclave/%.o: Enclave/%.cpp
-	@$(CXX) $(Enclave_Cpp_Flags) -c $< -o $@
-	@echo "CXX  <=  $<"
+	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Enclave_Name) $(Enclave_Link_Flags)
+	@echo "LINK =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Enclave_Name)"
 
-$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects)
-	@$(CXX) $^ -o $@ $(Enclave_Link_Flags)
-	@echo "LINK =>  $@"
+ 
+	@$(SGX_ENCLAVE_SIGNER) sign -key $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_private.pem \
+	-enclave $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Enclave_Name) \
+	-out $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Signed_Enclave_Name) \
+	-config $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Enclave_Config_File)
 
-$(Signed_Enclave_Name): $(Enclave_Name)
-	@$(SGX_ENCLAVE_SIGNER) sign -key Enclave/Enclave_private.pem -enclave $(Enclave_Name) -out $@ -config $(Enclave_Config_File)
-	@echo "SIGN =>  $@"
+	@echo "SIGN =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Signed_Enclave_Name)"
+
+	@rm -rf $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave
+
+nginx_sgx: clean untrusted trusted
 
 .PHONY: clean
 
 clean:
 	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
+	@rm -rf $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/*

@@ -33,10 +33,14 @@
 #include <string>
 #include <string.h>
 #include <stdio.h>
+#include <sgx_trts.h>
+
 
 double secure_add(double a, double b)
 {
     return a+b;
 }
-
+int test_addr(void *a){
+    return sgx_is_within_enclave(a, sizeof(a));
+}
 

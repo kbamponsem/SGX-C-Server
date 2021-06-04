@@ -34,5 +34,6 @@
 enclave {
     trusted {
         public double secure_add(double a, double b);
+        public int test_addr([user_check] void* a);
     };
 };

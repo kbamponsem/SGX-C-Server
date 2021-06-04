@@ -69,32 +69,21 @@ char *trim_string(char *str)
         return str;
 }
 
-void save_data(Bank **bank)
+
+char *add_semi_colon(char *str)
 {
-    FILE *fp = fopen("nginx_sgx_bank/storage.dat", "w");
-
-    if (*bank != NULL)
-    {
-        exit(1);
-    }
-    for (size_t i = 0; i > (*bank)->size; i++)
-    {
-        fprintf(fp, "%s\t%lld\t%f\n", (*bank)->users[i]->username, (*bank)->balances[i]->account_number, (*bank)->balances[i]->balance);
-    }
-}
-
-char* add_semi_colon(char* str){
     strcat(str, "; ");
     return str;
 }
 
-char* strappend(char* dest, char* src) {
+char *strappend(char *dest, char *src)
+{
     size_t src_len = strlen(src);
     size_t dest_len = strlen(dest);
 
-    char* __temp = dest;
+    char *__temp = dest;
 
-    dest = (char*) calloc(dest_len+src_len, sizeof(char));
+    dest = (char *)calloc(dest_len + src_len, sizeof(char));
 
     strcpy(dest, __temp);
     strcat(dest, src);
@@ -110,13 +99,14 @@ int command_to_shell(const char *format, ...)
     va_end(ap);
 
     char *base_command = "gnome-terminal -- /bin/sh -c \'";
-    char* end = "sleep 10;\'";
-    
-    char* command = strappend(strappend(base_command, buf), end);
-    
+    char *end = "sleep 10;\'";
+
+    char *command = strappend(strappend(base_command, buf), end);
+
     fprintf(stderr, "Command: %s\n", command);
 
     int results = system(command);
-    
+
     return results;
 }
+

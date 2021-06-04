@@ -6,10 +6,14 @@
 #include <jansson.h>
 #include <pthread.h>
 
+#define STATUS(a) (a != 0 ? "FAILED" : "SUCCESSFUL")
+
+sgx_enclave_id_t enclave1_eid = 1;
+sgx_enclave_id_t enclave2_eid = 2;
+
 /* Content-Type */
 ngx_http_request_t *setup_content_type(ngx_http_request_t *r)
 {
-
 	r->headers_out.content_type.len = strlen("application/json") - 1;
 	r->headers_out.content_type.data = (u_char *)"application/json";
 
@@ -18,18 +22,14 @@ ngx_http_request_t *setup_content_type(ngx_http_request_t *r)
 
 static char *ngx_get_all_accounts(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+// static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+// static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type);
 static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *);
 
 void ngx_add_account_func(ngx_http_request_t *r);
 void ngx_delete_account_func(ngx_http_request_t *r);
 void ngx_operation_func(ngx_http_request_t *r);
-
-static Bank *bank = NULL;
-static All_Users *all_users = NULL;
-static All_Balances *all_balances = NULL;
 
 static ngx_command_t ngx_sgx_bank_module_commands[] = {
 	{ngx_string("get_all_accounts"),
@@ -44,18 +44,18 @@ static ngx_command_t ngx_sgx_bank_module_commands[] = {
 	 0,
 	 0,
 	 NULL},
-	{ngx_string("delete_account"),
-	 NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
-	 ngx_delete_account,
-	 0,
-	 0,
-	 NULL},
-	{ngx_string("operation"),
-	 NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
-	 ngx_operation,
-	 0,
-	 0,
-	 NULL},
+	// {ngx_string("delete_account"),
+	//  NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
+	//  ngx_delete_account,
+	//  0,
+	//  0,
+	//  NULL},
+	// {ngx_string("operation"),
+	//  NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
+	//  ngx_operation,
+	//  0,
+	//  0,
+	//  NULL},
 	ngx_null_command};
 
 static ngx_http_module_t ngx_sgx_bank_module_ctx = {
@@ -82,11 +82,46 @@ ngx_module_t ngx_sgx_bank_module = {
 	NULL,
 	NGX_MODULE_V1_PADDING};
 
+void print_addr(void *addr)
+{
+	printf("Addr: %p\n", addr);
+}
+
+void print_string(char *string)
+{
+	printf("Unsecure Print: %s\n", string);
+}
+
+void serialize_data(Account_U **all_users, size_t size)
+{
+	json_t *array = json_array();
+
+	if (all_users != NULL)
+		for (size_t i = 0; i < size; i++)
+		{
+			printf("HERE!\n");
+			json_t *user = json_object();
+			print_addr((char*)all_users[i]);
+			// json_object_set_new(user, "username", json_string(all_users->users[i]->username));
+			// json_object_set(user, "account_number", json_real(all_users->users[i]->account_number));
+			// json_array_append_new(array, user);
+		}
+
+	// return json_dumps(array, 0);
+}
 static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 {
-	const json_t *results = get_all_accounts(&all_users, &all_balances);
+	char *output = (char *)calloc(1, sizeof(char));
 
-	u_char *all_accounts = (u_char *)json_dumps(results, 0);
+	sgx_status_t ret = get_users(enclave1_eid);
+	print_addr(output);
+
+	printf("Text: %s\n", output);
+	// if (all_users == NULL)
+	// 	printf("ALL_USERS: NULL\n");
+	// const json_t *results = get_users_as_json(all_users);
+
+	u_char *all_accounts = (u_char *)json_dumps(json_array(), 0);
 	size_t sz = strlen(all_accounts);
 
 	r->headers_out.status = NGX_HTTP_OK;
@@ -104,8 +139,6 @@ static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 
 	out.buf = b;
 	out.next = NULL;
-
-	// fprintf(stderr, "%d\n", sgx_is_within_enclave(&all_users, sizeof(all_users)));
 
 	return ngx_http_output_filter(r, &out);
 }
@@ -126,62 +159,62 @@ static ngx_int_t ngx_callback_add_account(ngx_http_request_t *r)
 	return NGX_DONE;
 }
 
-static ngx_int_t ngx_callback_delete_account(ngx_http_request_t *r)
-{
-	ngx_int_t rc;
+// static ngx_int_t ngx_callback_delete_account(ngx_http_request_t *r)
+// {
+// 	ngx_int_t rc;
 
-	rc = ngx_http_read_client_request_body(r, ngx_delete_account_func);
+// 	rc = ngx_http_read_client_request_body(r, ngx_delete_account_func);
 
-	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
-	{
-		return rc;
-	}
+// 	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
+// 	{
+// 		return rc;
+// 	}
 
-	return NGX_DONE;
-}
+// 	return NGX_DONE;
+// }
 
-static ngx_int_t ngx_callback_operation(ngx_http_request_t *r)
-{
-	ngx_int_t rc;
+// static ngx_int_t ngx_callback_operation(ngx_http_request_t *r)
+// {
+// 	ngx_int_t rc;
 
-	rc = ngx_http_read_client_request_body(r, ngx_operation_func);
+// 	rc = ngx_http_read_client_request_body(r, ngx_operation_func);
 
-	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
-	{
-		return rc;
-	}
+// 	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
+// 	{
+// 		return rc;
+// 	}
 
-	return NGX_DONE;
-}
+// 	return NGX_DONE;
+// }
 
-void ngx_operation_func(ngx_http_request_t *r)
-{
-	ngx_int_t rc;
-	ngx_chain_t out;
+// void ngx_operation_func(ngx_http_request_t *r)
+// {
+// 	ngx_int_t rc;
+// 	ngx_chain_t out;
 
-	if (r->request_body == NULL)
-	{
-		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-		return;
-	}
+// 	if (r->request_body == NULL)
+// 	{
+// 		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+// 		return;
+// 	}
 
-	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
+// 	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
 
-	json_t *req_obj = json_loads(req_body, 0, NULL);
+// 	json_t *req_obj = json_loads(req_body, 0, NULL);
 
-	big_int account_number = json_integer_value(json_object_get(req_obj, "account_number"));
-	const char *type = json_string_value(json_object_get(req_obj, "type"));
-	float amount = (float)json_number_value(json_object_get(req_obj, "amount"));
+// 	big_int account_number = json_integer_value(json_object_get(req_obj, "account_number"));
+// 	const char *type = json_string_value(json_object_get(req_obj, "type"));
+// 	float amount = (float)json_number_value(json_object_get(req_obj, "amount"));
 
-	int RESULTS = operation(&all_balances, account_number, amount, type);
+// 	int RESULTS = operation(&all_balances, account_number, amount, type);
 
-	out.buf = generate_output(r, RESULTS, NULL, NULL);
-	out.next = NULL;
+// 	out.buf = generate_output(r, RESULTS, NULL, NULL);
+// 	out.next = NULL;
 
-	rc = ngx_http_output_filter(r, &out);
+// 	rc = ngx_http_output_filter(r, &out);
 
-	ngx_http_finalize_request(r, rc);
-}
+// 	ngx_http_finalize_request(r, rc);
+// }
 
 void print_u_char(u_char *buf)
 {
@@ -213,20 +246,19 @@ void ngx_add_account_func(ngx_http_request_t *r)
 	json_t *name = json_object_get(req_obj, "name");
 	json_t *amount = json_object_get(req_obj, "amount");
 
-	fprintf(stderr, "Name: %s\n", json_string_value(name));
-	fprintf(stderr, "Amount: %0.2f\n", json_real_value(amount));
+	printf("Name: %s\n", json_string_value(name));
+	printf("Amount: %0.2f\n", json_real_value(amount));
 
 	size_t acc_number = generate_account_number();
 
-	Account_B *balance = (Account_B *)calloc(1, sizeof(Account_B));
 	Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
 
 	user->username = json_string_value(name);
 	user->account_number = acc_number;
-	balance->balance = (float)json_real_value(amount);
-	balance->account_number = acc_number;
 
-	int RESULTS = add_account(&all_users, &all_balances, user, balance);
+	int RESULTS;
+
+	sgx_status_t ret = add_user(enclave1_eid, &RESULTS, user);
 
 	out.buf = generate_output(r, RESULTS, &acc_number, "/add");
 	out.next = NULL;
@@ -236,40 +268,40 @@ void ngx_add_account_func(ngx_http_request_t *r)
 	ngx_http_finalize_request(r, rc);
 }
 
-void ngx_delete_account_func(ngx_http_request_t *r)
-{
-	ngx_int_t rc;
-	ngx_chain_t out;
+// void ngx_delete_account_func(ngx_http_request_t *r)
+// {
+// 	ngx_int_t rc;
+// 	ngx_chain_t out;
 
-	if (r->request_body == NULL)
-	{
-		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-		return;
-	}
+// 	if (r->request_body == NULL)
+// 	{
+// 		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+// 		return;
+// 	}
 
-	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
+// 	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
 
-	json_t *req_obj = json_loads(req_body, 0, NULL);
+// 	json_t *req_obj = json_loads(req_body, 0, NULL);
 
-	json_t *account_number = json_object_get(req_obj, "account_number");
+// 	json_t *account_number = json_object_get(req_obj, "account_number");
 
-	big_int account_number_value = json_integer_value(account_number);
+// 	big_int account_number_value = json_integer_value(account_number);
 
-	fprintf(stderr, "Account Number: %lld\n", account_number_value);
+// 	fprintf(stderr, "Account Number: %lld\n", account_number_value);
 
-	int RESULTS = delete_account(&all_users, &all_balances, json_integer_value(account_number));
+// 	int RESULTS = delete_account(&all_users, &all_balances, json_integer_value(account_number));
 
-	json_t *response = json_object();
+// 	json_t *response = json_object();
 
-	json_object_set_new(response, "message", json_string(RESULTS == 1 ? "User deleted successfully!" : "User not found!"));
+// 	json_object_set_new(response, "message", json_string(RESULTS == 1 ? "User deleted successfully!" : "User not found!"));
 
-	out.buf = generate_output(r, RESULTS, NULL, NULL);
-	out.next = NULL;
+// 	out.buf = generate_output(r, RESULTS, NULL, NULL);
+// 	out.next = NULL;
 
-	rc = ngx_http_output_filter(r, &out);
+// 	rc = ngx_http_output_filter(r, &out);
 
-	ngx_http_finalize_request(r, rc);
-}
+// 	ngx_http_finalize_request(r, rc);
+// }
 
 static char *ngx_get_all_accounts(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -287,21 +319,21 @@ static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	return NGX_CONF_OK;
 }
 
-static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-	ngx_http_core_loc_conf_t *clcf;
-	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-	clcf->handler = ngx_callback_delete_account;
-	return NGX_CONF_OK;
-}
+// static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+// {
+// 	ngx_http_core_loc_conf_t *clcf;
+// 	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+// 	clcf->handler = ngx_callback_delete_account;
+// 	return NGX_CONF_OK;
+// }
 
-static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-	ngx_http_core_loc_conf_t *clcf;
-	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-	clcf->handler = ngx_callback_operation;
-	return NGX_CONF_OK;
-}
+// static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+// {
+// 	ngx_http_core_loc_conf_t *clcf;
+// 	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+// 	clcf->handler = ngx_callback_operation;
+// 	return NGX_CONF_OK;
+// }
 
 ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type)
 {
@@ -345,15 +377,38 @@ ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *
 		ngx_http_finalize_request(r, rc);
 		return NULL;
 	}
+
 	return b;
 }
 
 static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *cf)
 {
-	// int results = command_to_shell("cd /home/kwabena/Projects/SGX/Exercise_SGX/part1;", "make clean && make;" ; sleep 10\'");
-	int results = command_to_shell("%s %s %s", "cd /home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclave1; ", "make clean && make; ", "./app; ");
-	results = command_to_shell("%s %s %s", "cd /home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclave2; ", "make clean && make; ", "./app; ");
+	json_t *root = json_load_file("/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/enclaves_u.json", 0, NULL);
 
-	fprintf(stderr, "Pre-config: [ %d ]\n", results);
+	const char *ENCLAVE1_TRUSTED = json_string_value(json_object_get(json_object_get(json_object_get(root, "Enclaves"), "1"), "trusted"));
+	const char *ENCLAVE1_UNTRUSTED = json_string_value(json_object_get(json_object_get(json_object_get(root, "Enclaves"), "1"), "untrusted"));
+	const char *ENCLAVE2_TRUSTED = json_string_value(json_object_get(json_object_get(json_object_get(root, "Enclaves"), "2"), "trusted"));
+	const char *ENCLAVE2_UNTRUSTED = json_string_value(json_object_get(json_object_get(json_object_get(root, "Enclaves"), "2"), "untrusted"));
+
+	int errors[2] = {1, 1};
+
+	if (
+		initialize_bank_enclave(ENCLAVE1_TRUSTED, ENCLAVE1_UNTRUSTED, &enclave1_eid) < 0)
+	{
+		errors[0] = 0;
+	}
+
+	if (
+		initialize_bank_enclave(ENCLAVE2_TRUSTED, ENCLAVE2_UNTRUSTED, &enclave2_eid) < 0)
+	{
+		errors[1] = 0;
+	}
+
+	if (errors[0] != 1 || errors[1] != 1)
+	{
+		printf("Enclave Setup Failed!\n");
+		return NGX_ERROR;
+	}
+	printf("Enclave Setup Successful!\n");
 	return NGX_OK;
 }

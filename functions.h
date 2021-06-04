@@ -1,103 +1,100 @@
 #include <stdio.h>
 #include <string.h>
-#include "types.h"
+#include <assert.h>
+#include <unistd.h>
+#include <pwd.h>
 #include "utils.h"
+#include "sgx_urts.h"
+#include "sgx_error.h" /* sgx_status_t */
+#include "sgx_eid.h"   /* sgx_enclave_id_t */
+#include "sgx_trts.h"
+
+#include "Enclaves_u/Enclave1/Untrusted/Enclave_u.h"
+#include "Enclaves_u/Enclave2/Untrusted/Enclave_u.h"
+
+
+
+#define MAX_PATH FILENAME_MAX
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
 
 #define max(a, b) (a >= b ? a : b)
 
-void *initialize_accounts(char *type)
-{
-    if (strcmp(type, "users") == 0)
-    {
-        All_Users *all_users = (All_Users *)calloc(1, sizeof(All_Users));
-        all_users->users = (Account_U **)calloc(1, sizeof(Account_U *));
+// void *initialize_accounts(char *type)
+// {
+//     if (strcmp(type, "users") == 0)
+//     {
+//         All_Users *all_users = (All_Users *)calloc(1, sizeof(All_Users));
+//         all_users->users = (Account_U **)calloc(1, sizeof(Account_U *));
 
-        if (all_users->users == NULL)
-        {
-            fprintf(stderr, "Unable to allocate memory users\n");
-        }
-        for (size_t i = 0; i < all_users->size; i++)
-        {
-            Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
+//         if (all_users->users == NULL)
+//         {
+//             fprintf(stderr, "Unable to allocate memory users\n");
+//         }
+//         for (size_t i = 0; i < all_users->size; i++)
+//         {
+//             Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
 
-            user->username = NULL;
-            user->account_number = 0;
+//             user->username = NULL;
+//             user->account_number = 0;
 
-            all_users->users[i] = user;
-        }
+//             all_users->users[i] = user;
+//         }
 
-        return all_users;
-    }
+//         return all_users;
+//     }
 
-    if (strcmp(type, "balances") == 0)
-    {
-        All_Balances *all_balances = (All_Balances *)calloc(1, sizeof(All_Balances));
-        all_balances->balances = (Account_B **)calloc(1, sizeof(Account_B *));
+//     if (strcmp(type, "balances") == 0)
+//     {
+//         All_Balances *all_balances = (All_Balances *)calloc(1, sizeof(All_Balances));
+//         all_balances->balances = (Account_B **)calloc(1, sizeof(Account_B *));
 
-        if (all_balances->balances == NULL)
-        {
-            fprintf(stderr, "Unable to allocate memory for balances\n");
-        }
-        for (size_t i = 0; i < all_balances->size; i++)
-        {
-            Account_B *balance = (Account_B *)calloc(1, sizeof(Account_B));
+//         if (all_balances->balances == NULL)
+//         {
+//             fprintf(stderr, "Unable to allocate memory for balances\n");
+//         }
+//         for (size_t i = 0; i < all_balances->size; i++)
+//         {
+//             Account_B *balance = (Account_B *)calloc(1, sizeof(Account_B));
 
-            balance->balance = 0;
-            balance->account_number = 0;
+//             balance->balance = 0;
+//             balance->account_number = 0;
 
-            all_balances->balances[i] = balance;
-        }
+//             all_balances->balances[i] = balance;
+//         }
 
-        return all_balances;
-    }
-    else
-        return NULL;
-}
-void show_accounts(Bank *bank)
-{
-    if (bank == NULL)
-    {
-        fprintf(stderr, "NEVER\n");
-        exit(1);
-    }
-    size_t list_size = bank->size;
+//         return all_balances;
+//     }
+//     else
+//         return NULL;
+// }
 
-    for (size_t i = 0; i < list_size; i++)
-    {
-        if ((bank->users[i]->username != NULL && bank->users[i]->account_number != 0) || (bank->balances[i]->balance == 0.0 && bank->balances[i]->account_number != 0))
-        {
-            printf("%s, %lli\n", bank->users[i]->username, bank->users[i]->account_number);
-            printf("%lli, %0.2f\n", bank->balances[i]->account_number, bank->balances[i]->balance);
-        }
-
-        else
-            continue;
-    }
-}
-
-json_t *get_all_accounts(All_Users **all_users, All_Balances **all_balances)
+json_t *get_users_as_json(All_Users *all_users)
 {
     json_t *users = json_array();
-    json_t *balances = json_array();
     json_t *results = json_object();
 
-    if (*all_users == NULL || *all_balances == NULL)
+    if (all_users == NULL)
     {
         json_object_set_new(results, "users", users);
-        json_object_set_new(results, "balances", balances);
         return results;
     }
     else
     {
-        for (size_t i = 0; i < (*all_users)->size; i++)
+        for (size_t i = 0; i < all_users->size; i++)
         {
-            Account_U *user = (*all_users)->users[i];
-            Account_B *balance = (*all_balances)->balances[i];
+            Account_U *user = all_users->users[i];
 
             json_t *user_obj = json_object();
             json_t *balance_obj = json_object();
 
-            if ((user->username == NULL && user->account_number == 0) || (balance->account_number == 0 && balance->balance == 0.0))
+            if ((user->username == NULL && user->account_number == 0))
                 continue;
             else
             {
@@ -106,62 +103,57 @@ json_t *get_all_accounts(All_Users **all_users, All_Balances **all_balances)
                 json_object_set_new(user_obj, "username", json_string(user->username));
                 json_object_set_new(user_obj, "account_number", json_integer(user->account_number));
 
-                json_object_set_new(balance_obj, "balance", json_real(balance->balance));
-                json_object_set_new(balance_obj, "account_number", json_integer(balance->account_number));
-
                 json_array_append_new(users, user_obj);
-                json_array_append_new(balances, balance_obj);
             }
         }
 
         json_object_set_new(results, "users", users);
-        json_object_set_new(results, "balances", balances);
         return results;
     }
 }
 
-int add_account(All_Users **all_users, All_Balances **all_balances, Account_U *user, Account_B *balance)
-{
-    if (*all_users == NULL || *all_balances == NULL)
-    {
-        *all_users = (All_Users *)initialize_accounts("users");
-        *all_balances = (All_Balances *)initialize_accounts("balances");
-    }
-    // fprintf(stderr, "%s\n", *bank == NULL ? "Bank still NULL." : NULL);
-    size_t curr_list_size = max((*all_users)->size, (*all_balances)->size);
+// int add_account(All_Users **all_users, All_Balances **all_balances, Account_U *user, Account_B *balance)
+// {
+//     if (*all_users == NULL || *all_balances == NULL)
+//     {
+//         *all_users = (All_Users *)initialize_accounts("users");
+//         *all_balances = (All_Balances *)initialize_accounts("balances");
+//     }
+//     // fprintf(stderr, "%s\n", *bank == NULL ? "Bank still NULL." : NULL);
+//     size_t curr_list_size = max((*all_users)->size, (*all_balances)->size);
 
-    size_t new_list_size = curr_list_size + 1;
+//     size_t new_list_size = curr_list_size + 1;
 
-    if (user->username != NULL)
-    {
-        Account_U **curr_users = (*all_users)->users;
-        Account_B **curr_balances = (*all_balances)->balances;
+//     if (user->username != NULL)
+//     {
+//         Account_U **curr_users = (*all_users)->users;
+//         Account_B **curr_balances = (*all_balances)->balances;
 
-        Account_U **new_users = (Account_U **)calloc(new_list_size, sizeof(Account_U *));
-        Account_B **new_balances = (Account_B **)calloc(new_list_size, sizeof(Account_B *));
+//         Account_U **new_users = (Account_U **)calloc(new_list_size, sizeof(Account_U *));
+//         Account_B **new_balances = (Account_B **)calloc(new_list_size, sizeof(Account_B *));
 
-        for (size_t i = 0; i < curr_list_size; i++)
-        {
+//         for (size_t i = 0; i < curr_list_size; i++)
+//         {
 
-            new_users[i] = curr_users[i];
-            new_balances[i] = curr_balances[i];
-        }
+//             new_users[i] = curr_users[i];
+//             new_balances[i] = curr_balances[i];
+//         }
 
-        (*all_users)->users = new_users;
-        (*all_balances)->balances = new_balances;
+//         (*all_users)->users = new_users;
+//         (*all_balances)->balances = new_balances;
 
-        show_message("--adding-to-users-and-balances--");
-        (*all_users)->users[curr_list_size] = user;
-        (*all_balances)->balances[curr_list_size] = balance;
+//         show_message("--adding-to-users-and-balances--");
+//         (*all_users)->users[curr_list_size] = user;
+//         (*all_balances)->balances[curr_list_size] = balance;
 
-        (*all_users)->size = new_list_size;
-        (*all_balances)->size = new_list_size;
+//         (*all_users)->size = new_list_size;
+//         (*all_balances)->size = new_list_size;
 
-        return 1;
-    }
-    else
-        return 0;
-}
+//         return 1;
+//     }
+//     else
+//         return 0;
+// }
 
 int delete_account(All_Users **all_users, All_Balances **all_balances, big_int identifier)
 {
@@ -245,54 +237,62 @@ int operation(All_Balances** all_balances, big_int account_number, float amount,
     return 0;
 }
 
-// char *c_read_file(const char *f_name, int *err, size_t *f_size)
-// {
-//     char *buffer;
-//     size_t length;
-//     FILE *f = fopen(f_name, "rb");
-//     size_t read_length;
+int initialize_bank_enclave(const char* ENCLAVE_FILENAME, const char* TOKEN_FILENAME, sgx_enclave_id_t *enclave_id)
+{
+	char token_path[MAX_PATH] = {'\0'};
+	sgx_launch_token_t token = {0};
+	sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+	int updated = 0;
 
-//     if (f)
-//     {
-//         fseek(f, 0, SEEK_END);
-//         length = ftell(f);
-//         fseek(f, 0, SEEK_SET);
+	const char *home_dir = getpwuid(getuid())->pw_dir;
+    
+    strcpy(token_path, TOKEN_FILENAME);
 
-//         // 1 GiB; best not to load a whole large file in one string
-//         if (length > 1073741824)
-//         {
-//             *err = FILE_TO_LARGE;
 
-//             return NULL;
-//         }
+	FILE *fp = fopen(token_path, "rb");
+	if (fp == NULL && (fp = fopen(token_path, "wb")) == NULL)
+	{
+		printf("Warning: Failed to create/open the launch token file \"%s\".\n", token_path);
+	}
 
-//         buffer = (char *)malloc(length + 1);
+	if (fp != NULL)
+	{
+		/* read the token from saved file */
+		size_t read_num = fread(token, 1, sizeof(sgx_launch_token_t), fp);
+		if (read_num != 0 && read_num != sizeof(sgx_launch_token_t))
+		{
+			/* if token is invalid, clear the buffer */
+			memset(&token, 0x0, sizeof(sgx_launch_token_t));
+			printf("Warning: Invalid launch token read from \"%s\".\n", token_path);
+		}
+	}
+	/* Step 2: call sgx_create_enclave to initialize an enclave instance */
+	/* Debug Support: set 2nd parameter to 1 */
+	ret = sgx_create_enclave(ENCLAVE_FILENAME, SGX_DEBUG_FLAG, &token, &updated, enclave_id, NULL);
+	if (ret != SGX_SUCCESS)
+	{
+		printf("ERROR!\n");
+		if (fp != NULL)
+			fclose(fp);
+		return -1;
+	}
 
-//         if (length)
-//         {
-//             read_length = fread(buffer, 1, length, f);
+	/* Step 3: save the launch token if it is updated */
+	if (updated == FALSE || fp == NULL)
+	{
+		/* if the token is not updated, or file handler is invalid, do not perform saving */
+		if (fp != NULL)
+			fclose(fp);
+		return 0;
+	}
 
-//             if (length != read_length)
-//             {
-//                 free(buffer);
-//                 *err = FILE_READ_ERROR;
-
-//                 return NULL;
-//             }
-//         }
-
-//         fclose(f);
-
-//         *err = FILE_OK;
-//         buffer[length] = '\0';
-//         *f_size = length;
-//     }
-//     else
-//     {
-//         *err = FILE_NOT_EXIST;
-
-//         return NULL;
-//     }
-
-//     return buffer;
-// }
+	/* reopen the file with write capablity */
+	fp = freopen(token_path, "wb", fp);
+	if (fp == NULL)
+		return 0;
+	size_t write_num = fwrite(token, 1, sizeof(sgx_launch_token_t), fp);
+	if (write_num != sizeof(sgx_launch_token_t))
+		printf("Warning: Failed to save launch token to \"%s\".\n", token_path);
+	fclose(fp);
+	return 0;
+}

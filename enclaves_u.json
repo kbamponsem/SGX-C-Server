@@ -1,0 +1,12 @@
+{
+    "Enclaves": {
+        "1": {
+            "trusted": "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclaves_u/Enclave1/enclave.signed.so",
+            "untrusted": "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclaves_u/Enclave1/enclave.so"
+        },
+        "2": {
+            "trusted": "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclaves_u/Enclave2/enclave.signed.so",
+            "untrusted": "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Enclaves_u/Enclave2/enclave.so"
+        }
+    }
+}

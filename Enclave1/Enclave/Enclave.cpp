@@ -29,84 +29,87 @@
  *
  */
 
-#include "Enclave_t.h"  /* print_string */
+#include "Enclave_t.h" /* print_string */
 #include <string>
-#include <string.h>
 #include <stdio.h>
-#include "/opt/intel/sgxssl/include/openssl/ssl.h"
-#include "/opt/intel/sgxssl/include/openssl/err.h"
-// #include <openssl/ssl.h>
-// #include <openssl/sslerr.h>
+#include <stdlib.h>
+#include <openssl/evp.h>
+#include <sgx_trts.h>
 
+All_Users *all_users = NULL;
 
-
-double secure_add(double a, double b)
+void initialize_accounts(All_Users **all_users)
 {
-    return a+b;
-}
+    *all_users = (All_Users *)calloc(1, sizeof(All_Users));
+    (*all_users)->users = (Account_U **)calloc(1, sizeof(Account_U *));
+    (*all_users)->size = 1;
 
+    // for (size_t i = 0; i < (*all_users)->size; i++)
+    // {
+    //     Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
 
-SSL_CTX *create_context()
-{
-    const SSL_METHOD *method;
-    SSL_CTX *ctx;
+    //     user->username = NULL;
+    //     user->account_number = 0;
 
-    method = SSLv23_server_method();
-
-
-    return ctx;
-}
-void ecall_start_tls_server(void)
-{
-    int sock;
-    SSL_CTX *ctx;
-
-    // ("OPENSSL Version = %s", SSLeay_version(SSLEAY_VERSION));
-    // // init_openssl();
-    ctx = create_context();
-    // configure_context(ctx);
-
-    // sock = create_socket_server(4433);
-    // if(sock < 0) {
-    //     printe("create_socket_client");
-    //     exit(EXIT_FAILURE);
+    //     (*all_users)->users[i] = user;
     // }
-
-    // /* Handle SSL/TLS connections */
-    // while(1) {
-    //     struct sockaddr_in addr;
-    //     int len = sizeof(addr);
-    //     SSL *cli;
-    //     unsigned char read_buf[1024];
-    //     int r = 0;
-    //     printl("Wait for new connection...");
-    //     int client = accept(sock, (struct sockaddr*)&addr, &len);
-    //     if (client < 0) {
-    //         printe("Unable to accept");
-    //         exit(EXIT_FAILURE);
-    //     }
-
-	// cli = SSL_new(ctx);
-    //     SSL_set_fd(cli, client);
-	// if (SSL_accept(cli) <= 0) {
-    //         printe("SSL_accept");
-    //         exit(EXIT_FAILURE);
-    //     }
-		
-    //     printl("ciphersuit: %s", SSL_get_current_cipher(cli)->name);
-    //     /* Receive buffer from TLS server */
-    //     r = SSL_read(cli, read_buf, sizeof(read_buf));
-    //     printl("read_buf: length = %d : %s", r, read_buf);
-    //     memset(read_buf, 0, sizeof(read_buf));        
-        
-    //     printl("Close SSL/TLS client");
-    //     SSL_free(cli);
-    //     sgx_close(client);
-    // }
-
-    // sgx_close(sock);
-    // SSL_CTX_free(ctx);
-    // cleanup_openssl();
 }
 
+enclave_op secure_subtract(double a, double b)
+{
+    enclave_op op1 = {a - b, sgx_is_within_enclave(&a, sizeof(a))};
+    return op1;
+}
 
+void get_users()
+{
+    if (all_users == NULL)
+        initialize_accounts(&all_users);
+    serialize_data(all_users->users, all_users->size);
+}
+
+int add_user(Account_U *user)
+{
+    if (all_users == NULL)
+        initialize_accounts(&all_users);
+
+    // print username passed
+    print_string((char*)user->username);
+
+    size_t curr_list_size = all_users->size;
+
+    size_t new_list_size = curr_list_size + 1;
+
+    if (user->username != NULL)
+    {
+        Account_U **curr_users = all_users->users;
+
+        Account_U **new_users = (Account_U **)calloc(new_list_size, sizeof(Account_U *));
+
+        for (size_t i = 0; i < curr_list_size; i++)
+        {
+            new_users[i] = curr_users[i];
+        }
+
+        all_users->users = new_users;
+
+        all_users->users[curr_list_size] = user;
+
+        all_users->size = new_list_size;
+
+        return 1;
+    }
+    else
+        return 0;
+}
+
+int decrypt_message(char *encrypted_message)
+{
+    EVP_CIPHER_CTX *ctx;
+    if (encrypted_message[0] == '1')
+    {
+        return 1;
+    }
+    else
+        return 0;
+}
