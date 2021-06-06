@@ -92,36 +92,27 @@ void print_string(char *string)
 	printf("Unsecure Print: %s\n", string);
 }
 
-void serialize_data(Account_U **all_users, size_t size)
+char* serialize_user(All_Users all_users[])
 {
-	json_t *array = json_array();
+	json_t* results = json_array();
 
-	if (all_users != NULL)
-		for (size_t i = 0; i < size; i++)
-		{
-			printf("HERE!\n");
-			json_t *user = json_object();
-			print_addr((char*)all_users[i]);
-			// json_object_set_new(user, "username", json_string(all_users->users[i]->username));
-			// json_object_set(user, "account_number", json_real(all_users->users[i]->account_number));
-			// json_array_append_new(array, user);
-		}
+	for(size_t i = 0; i < all_users->size; i++) {
+		json_t* user = json_object();
+		json_object_set_new(user, "username", json_string(all_users->users[i].username));
+		json_object_set_new(user, "account_number", json_integer(all_users->users[i].account_number));
 
-	// return json_dumps(array, 0);
+		json_array_append_new(results, user);
+	}
+
+	return json_dumps(results, 0);
 }
 static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 {
 	char *output = (char *)calloc(1, sizeof(char));
 
-	sgx_status_t ret = get_users(enclave1_eid);
-	print_addr(output);
+	sgx_status_t ret = get_users(enclave1_eid, &output);
 
-	printf("Text: %s\n", output);
-	// if (all_users == NULL)
-	// 	printf("ALL_USERS: NULL\n");
-	// const json_t *results = get_users_as_json(all_users);
-
-	u_char *all_accounts = (u_char *)json_dumps(json_array(), 0);
+	u_char *all_accounts = (u_char *)output;
 	size_t sz = strlen(all_accounts);
 
 	r->headers_out.status = NGX_HTTP_OK;
@@ -251,10 +242,9 @@ void ngx_add_account_func(ngx_http_request_t *r)
 
 	size_t acc_number = generate_account_number();
 
-	Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
-
-	user->username = json_string_value(name);
-	user->account_number = acc_number;
+	Account_U user;
+	user.username = (char*) json_string_value(name);
+	user.account_number = acc_number;
 
 	int RESULTS;
 

@@ -37,12 +37,12 @@ enclave {
     trusted {
         public enclave_op secure_subtract(double a, double b);
         public int decrypt_message([user_check] char* encrypted_message);
-        public void get_users();
-        public int add_user([in] Account_U* user);
+        public char* get_users();
+        public int add_user(Account_U user);
     };
     untrusted {
         void print_addr([user_check] void* addr);
-        void serialize_data([in] Account_U** all_users, size_t size);
+        char* serialize_user([in] All_Users *all_users);
         void print_string([user_check] char* string);
     };
 };

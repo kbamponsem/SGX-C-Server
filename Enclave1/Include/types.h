@@ -10,7 +10,7 @@ typedef long long big_int;
 
 typedef struct
 {
-    const char *username;
+    char *username;
     big_int account_number;
 } Account_U;
 
@@ -22,12 +22,12 @@ typedef struct
 
 typedef struct
 {
-    Account_U **users;
+    Account_U users[1000];
     size_t size;
 } All_Users;
 
 typedef struct
 {
-    Account_B **balances;
+    Account_B balances[1000];
     size_t size;
 } All_Balances;

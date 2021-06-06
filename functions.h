@@ -75,42 +75,42 @@
 //         return NULL;
 // }
 
-json_t *get_users_as_json(All_Users *all_users)
-{
-    json_t *users = json_array();
-    json_t *results = json_object();
+// json_t *get_users_as_json(All_Users *all_users)
+// {
+//     json_t *users = json_array();
+//     json_t *results = json_object();
 
-    if (all_users == NULL)
-    {
-        json_object_set_new(results, "users", users);
-        return results;
-    }
-    else
-    {
-        for (size_t i = 0; i < all_users->size; i++)
-        {
-            Account_U *user = all_users->users[i];
+//     if (all_users == NULL)
+//     {
+//         json_object_set_new(results, "users", users);
+//         return results;
+//     }
+//     else
+//     {
+//         for (size_t i = 0; i < all_users->size; i++)
+//         {
+//             Account_U *user = all_users->users[i];
 
-            json_t *user_obj = json_object();
-            json_t *balance_obj = json_object();
+//             json_t *user_obj = json_object();
+//             json_t *balance_obj = json_object();
 
-            if ((user->username == NULL && user->account_number == 0))
-                continue;
-            else
-            {
-                show_message("--retrieving working--");
+//             if ((user->username == NULL && user->account_number == 0))
+//                 continue;
+//             else
+//             {
+//                 show_message("--retrieving working--");
 
-                json_object_set_new(user_obj, "username", json_string(user->username));
-                json_object_set_new(user_obj, "account_number", json_integer(user->account_number));
+//                 json_object_set_new(user_obj, "username", json_string(user->username));
+//                 json_object_set_new(user_obj, "account_number", json_integer(user->account_number));
 
-                json_array_append_new(users, user_obj);
-            }
-        }
+//                 json_array_append_new(users, user_obj);
+//             }
+//         }
 
-        json_object_set_new(results, "users", users);
-        return results;
-    }
-}
+//         json_object_set_new(results, "users", users);
+//         return results;
+//     }
+// }
 
 // int add_account(All_Users **all_users, All_Balances **all_balances, Account_U *user, Account_B *balance)
 // {
@@ -155,87 +155,87 @@ json_t *get_users_as_json(All_Users *all_users)
 //         return 0;
 // }
 
-int delete_account(All_Users **all_users, All_Balances **all_balances, big_int identifier)
-{
-    if (*all_users == NULL || *all_balances == NULL)
-    {
-        return 0;
-    }
-    size_t curr_list_size = max((*all_users)->size, (*all_balances)->size);
+// int delete_account(All_Users **all_users, All_Balances **all_balances, big_int identifier)
+// {
+//     if (*all_users == NULL || *all_balances == NULL)
+//     {
+//         return 0;
+//     }
+//     size_t curr_list_size = max((*all_users)->size, (*all_balances)->size);
 
-    for (size_t i = 0; i < curr_list_size; i++)
-    {
-        Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
-        Account_B *balance = (Account_B *)calloc(1, sizeof(Account_B));
+//     for (size_t i = 0; i < curr_list_size; i++)
+//     {
+//         Account_U *user = (Account_U *)calloc(1, sizeof(Account_U));
+//         Account_B *balance = (Account_B *)calloc(1, sizeof(Account_B));
 
-        user = (*all_users)->users[i];
-        balance = (*all_balances)->balances[i];
+//         user = (*all_users)->users[i];
+//         balance = (*all_balances)->balances[i];
 
-        if ((user->username != NULL && user->account_number != 0) && (balance->account_number != 0))
-        {
-            if (user->account_number == identifier && balance->account_number == identifier)
-            {
-                fprintf(stderr, "%s, %llu\n", user->username, user->account_number);
-                user->username = NULL;
-                user->account_number = 0;
+//         if ((user->username != NULL && user->account_number != 0) && (balance->account_number != 0))
+//         {
+//             if (user->account_number == identifier && balance->account_number == identifier)
+//             {
+//                 fprintf(stderr, "%s, %llu\n", user->username, user->account_number);
+//                 user->username = NULL;
+//                 user->account_number = 0;
 
-                balance->account_number = 0;
+//                 balance->account_number = 0;
 
-                (*all_users)->users[i] = user;
-                (*all_balances)->balances[i] = balance;
+//                 (*all_users)->users[i] = user;
+//                 (*all_balances)->balances[i] = balance;
 
-                return 1;
-            }
-        }
-    }
+//                 return 1;
+//             }
+//         }
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
-int operation(All_Balances** all_balances, big_int account_number, float amount, const char *type)
-{
-    if (*all_balances == NULL)
-    {
-        return 0;
-    }
+// int operation(All_Balances** all_balances, big_int account_number, float amount, const char *type)
+// {
+//     if (*all_balances == NULL)
+//     {
+//         return 0;
+//     }
 
-    if (amount < 0)
-    {
-        return 0;
-    }
-    size_t curr_list_size = max(0, (*all_balances)->size);
+//     if (amount < 0)
+//     {
+//         return 0;
+//     }
+//     size_t curr_list_size = max(0, (*all_balances)->size);
 
-    for (size_t i = 0; i < curr_list_size; i++)
-    {
-        Account_B *_balance = (Account_B *)calloc(1, sizeof(Account_B));
+//     for (size_t i = 0; i < curr_list_size; i++)
+//     {
+//         Account_B *_balance = (Account_B *)calloc(1, sizeof(Account_B));
 
-        _balance = (*all_balances)->balances[i];
+//         _balance = (*all_balances)->balances[i];
 
-        if ((_balance->account_number != 0))
-        {
-            if (_balance->account_number == account_number)
-            {
-                if (strcmp(type, "WITHDRAW") == 0)
-                {
-                    if (_balance->balance > 0)
-                    {
-                        _balance->balance = _balance->balance - amount;
-                        (*all_balances)->balances[i] = _balance;
-                        return 1;
-                    }
-                }
-                else if (strcmp(type, "DEPOSIT") == 0)
-                {
-                    _balance->balance = _balance->balance + amount;
-                    (*all_balances)->balances[i] = _balance;
-                    return 1;
-                }
-            }
-        }
-    }
+//         if ((_balance->account_number != 0))
+//         {
+//             if (_balance->account_number == account_number)
+//             {
+//                 if (strcmp(type, "WITHDRAW") == 0)
+//                 {
+//                     if (_balance->balance > 0)
+//                     {
+//                         _balance->balance = _balance->balance - amount;
+//                         (*all_balances)->balances[i] = _balance;
+//                         return 1;
+//                     }
+//                 }
+//                 else if (strcmp(type, "DEPOSIT") == 0)
+//                 {
+//                     _balance->balance = _balance->balance + amount;
+//                     (*all_balances)->balances[i] = _balance;
+//                     return 1;
+//                 }
+//             }
+//         }
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
 int initialize_bank_enclave(const char* ENCLAVE_FILENAME, const char* TOKEN_FILENAME, sgx_enclave_id_t *enclave_id)
 {
