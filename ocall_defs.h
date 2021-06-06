@@ -67,3 +67,16 @@ Account_B balance_string_to_account(char *balance_string)
 
 	return balance;
 }
+
+Balance_Entry string_to_balance_entry(char *string)
+{
+	json_t *balance_entry = json_loads(string, 0, NULL);
+
+	Balance_Entry b_entry;
+
+	b_entry.type = (char *)json_string_value(json_object_get(balance_entry, "type"));
+	b_entry.account_number = json_integer_value(json_object_get(balance_entry, "account_number"));
+	b_entry.amount = json_real_value(json_object_get(balance_entry, "amount"));
+
+	return b_entry;
+}

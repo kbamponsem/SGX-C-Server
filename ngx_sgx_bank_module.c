@@ -24,7 +24,7 @@ ngx_http_request_t *setup_content_type(ngx_http_request_t *r)
 static char *ngx_get_all_accounts(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 // static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-// static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type);
 static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *);
 
@@ -51,12 +51,12 @@ static ngx_command_t ngx_sgx_bank_module_commands[] = {
 	//  0,
 	//  0,
 	//  NULL},
-	// {ngx_string("operation"),
-	//  NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
-	//  ngx_operation,
-	//  0,
-	//  0,
-	//  NULL},
+	{ngx_string("operation"),
+	 NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
+	 ngx_operation,
+	 0,
+	 0,
+	 NULL},
 	ngx_null_command};
 
 static ngx_http_module_t ngx_sgx_bank_module_ctx = {
@@ -83,16 +83,15 @@ ngx_module_t ngx_sgx_bank_module = {
 	NULL,
 	NGX_MODULE_V1_PADDING};
 
-
 static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 {
 	char *users = (char *)calloc(1, sizeof(char));
-	char *balances = (char *) calloc(1, sizeof(char));
+	char *balances = (char *)calloc(1, sizeof(char));
 
 	sgx_status_t user_ret = get_users(enclave1_eid, &users);
 	sgx_status_t balance_ret = get_balances(enclave2_eid, &balances);
 
-	json_t* response = json_object();
+	json_t *response = json_object();
 	json_object_set_new(response, "users", json_loads(users, 0, NULL));
 	json_object_set_new(response, "balances", json_loads(balances, 0, NULL));
 
@@ -148,48 +147,55 @@ static ngx_int_t ngx_callback_add_account(ngx_http_request_t *r)
 // 	return NGX_DONE;
 // }
 
-// static ngx_int_t ngx_callback_operation(ngx_http_request_t *r)
-// {
-// 	ngx_int_t rc;
+static ngx_int_t ngx_callback_operation(ngx_http_request_t *r)
+{
+	ngx_int_t rc;
 
-// 	rc = ngx_http_read_client_request_body(r, ngx_operation_func);
+	rc = ngx_http_read_client_request_body(r, ngx_operation_func);
 
-// 	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
-// 	{
-// 		return rc;
-// 	}
+	if (rc >= NGX_HTTP_SPECIAL_RESPONSE)
+	{
+		return rc;
+	}
 
-// 	return NGX_DONE;
-// }
+	return NGX_DONE;
+}
 
-// void ngx_operation_func(ngx_http_request_t *r)
-// {
-// 	ngx_int_t rc;
-// 	ngx_chain_t out;
+void ngx_operation_func(ngx_http_request_t *r)
+{
+	ngx_int_t rc;
+	ngx_chain_t out;
 
-// 	if (r->request_body == NULL)
-// 	{
-// 		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-// 		return;
-// 	}
+	if (r->request_body == NULL)
+	{
+		ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+		return;
+	}
 
-// 	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
+	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
 
-// 	json_t *req_obj = json_loads(req_body, 0, NULL);
+	json_t *req_obj = json_loads(req_body, 0, NULL);
+	json_t *op = json_object();
 
-// 	big_int account_number = json_integer_value(json_object_get(req_obj, "account_number"));
-// 	const char *type = json_string_value(json_object_get(req_obj, "type"));
-// 	float amount = (float)json_number_value(json_object_get(req_obj, "amount"));
+	big_int account_number = json_integer_value(json_object_get(req_obj, "account_number"));
+	const char *type = json_string_value(json_object_get(req_obj, "type"));
+	float amount = (float)json_number_value(json_object_get(req_obj, "amount"));
 
-// 	int RESULTS = operation(&all_balances, account_number, amount, type);
+	json_object_set_new(op, "type", json_string(type));
+	json_object_set_new(op, "account_number", json_integer(account_number));
+	json_object_set_new(op, "amount", json_real(amount));
 
-// 	out.buf = generate_output(r, RESULTS, NULL, NULL);
-// 	out.next = NULL;
+	int RESULTS = 0;
 
-// 	rc = ngx_http_output_filter(r, &out);
+	sgx_status_t ret = operation(enclave2_eid, &RESULTS, json_dumps(op, 0));
 
-// 	ngx_http_finalize_request(r, rc);
-// }
+	out.buf = generate_output(r, RESULTS, NULL, NULL);
+	out.next = NULL;
+
+	rc = ngx_http_output_filter(r, &out);
+
+	ngx_http_finalize_request(r, rc);
+}
 
 void print_u_char(u_char *buf)
 {
@@ -221,7 +227,7 @@ void ngx_add_account_func(ngx_http_request_t *r)
 	json_t *user = json_object();
 	json_t *balance = json_object();
 
-	size_t acc_number = generate_account_number();
+	big_int acc_number = generate_account_number();
 
 	json_object_set_new(user, "username", json_object_get(req_obj, "name"));
 	json_object_set_new(user, "account_number", json_integer(acc_number));
@@ -304,13 +310,13 @@ static char *ngx_add_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 // 	return NGX_CONF_OK;
 // }
 
-// static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-// {
-// 	ngx_http_core_loc_conf_t *clcf;
-// 	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-// 	clcf->handler = ngx_callback_operation;
-// 	return NGX_CONF_OK;
-// }
+static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+	ngx_http_core_loc_conf_t *clcf;
+	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+	clcf->handler = ngx_callback_operation;
+	return NGX_CONF_OK;
+}
 
 ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type)
 {

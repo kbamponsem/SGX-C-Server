@@ -36,4 +36,10 @@ typedef struct
     size_t size;
 } All_Balances;
 
+typedef struct {
+    char *type;
+    big_int account_number;
+    float amount;
+} Balance_Entry;
+
 #endif
