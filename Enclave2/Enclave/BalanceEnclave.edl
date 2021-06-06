@@ -32,8 +32,15 @@
 /* Enclave.edl - Top EDL file. */
 
 enclave {
+    include "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Include/types.h"
+
     trusted {
-        public double secure_add(double a, double b);
-        public int test_addr([user_check] void* a);
+        public char* get_balances();
+        public int add_balance([user_check] char* balance_string);
+    };
+
+    untrusted {
+        char* serialize_balance([in] All_Balances *all_balances);
+        Account_B balance_string_to_account([user_check] char* balance_string);
     };
 };

@@ -39,6 +39,7 @@ CC=clang
 C++=clang++
 PROJ_DIR ?= /home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank
 ENCLAVES_DIR ?= Enclaves_u
+SGX_SSL ?= /opt/intel/sgxssl
 
 ifeq ($(shell getconf LONG_BIT), 32)
 	SGX_ARCH := x86
@@ -116,9 +117,9 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_Cpp_Files := Enclave/Enclave.cpp
-Enclave_Include_Paths := -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx
+Enclave_Include_Paths := -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_SSL)/include -I$(PROJ_DIR)/Include
 
-Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -I/usr/include
+Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) 
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
 
 # To generate a proper enclave, it is recommended to follow below guideline to link the trusted libraries:
@@ -147,28 +148,40 @@ untrusted:
 	@echo "Compiling untrusted code."
 
 	@mkdir -p $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted
-	@cp Enclave/Enclave.edl $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2
-	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted && $(SGX_EDGER8R) --untrusted ../Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include && rm ../Enclave.edl
+	@cp -r $(PROJ_DIR)/Include Enclave/BalanceEnclave.edl $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2
 
-	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/Enclave_u.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/Enclave_u.o
-	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/Enclave_u.c"
+	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted && \
+	$(SGX_EDGER8R) --untrusted ../BalanceEnclave.edl \
+	--search-path ../Enclave \
+	--search-path $(SGX_SDK)/include \
+	--search-path ../Include  && rm ../BalanceEnclave.edl
+
+	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/BalanceEnclave_u.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/BalanceEnclave_u.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Untrusted/BalanceEnclave_u.c"
 
 
 ######## Enclave Objects ########
 trusted:
 	@echo "Compiling trusted code."
 	@cp -r Enclave $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2
-	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave && $(SGX_EDGER8R) --trusted Enclave.edl --search-path ../Enclave --search-path $(SGX_SDK)/include
+	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave && \
+	$(SGX_EDGER8R) --trusted BalanceEnclave.edl \
+	--search-path ../Enclave \
+	--search-path $(SGX_SDK)/include \
+	--search-path ../Include 
+	
 	@cd -
-	@echo "GEN  =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.c"
+	@echo "GEN  =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/BalanceEnclave_t.c"
 
-	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.o
-	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.c"
+	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/BalanceEnclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/BalanceEnclave_t.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/BalanceEnclave_t.c"
 
-	@$(CXX) $(Enclave_Cpp_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.o
-	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.cpp"
+	@$(CXX) $(Enclave_Cpp_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.o 
+	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.cpp"	
 
-	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave_t.o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Enclave_Name) $(Enclave_Link_Flags)
+	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/BalanceEnclave_t.o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Enclave_Name) \
+	$(Enclave_Link_Flags) 
+
 	@echo "LINK =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/$(Enclave_Name)"
 
  

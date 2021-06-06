@@ -29,18 +29,41 @@
  *
  */
 
-#include "Enclave_t.h"  /* print_string */
+#include "BalanceEnclave_t.h"  /* print_string */
 #include <string>
 #include <string.h>
 #include <stdio.h>
 #include <sgx_trts.h>
 
+static All_Balances all_balances[1];
 
-double secure_add(double a, double b)
+char *get_balances()
 {
-    return a+b;
-}
-int test_addr(void *a){
-    return sgx_is_within_enclave(a, sizeof(a));
+    char *output;
+    serialize_balance(&output, all_balances);
+    return output;
 }
 
+int add_balance(char *balance_string)
+{
+    Account_B balance;
+
+    /*
+        For this step, user string would be encrypted with the Pk of Enclave1
+    */
+    balance_string_to_account(&balance, balance_string);
+    size_t curr_list_size = all_balances->size;
+
+    size_t new_list_size = curr_list_size + 1;
+
+    if (balance.balance >= 0)
+    {
+        all_balances->balances[curr_list_size] = balance;
+
+        all_balances->size = new_list_size;
+
+        return 1;
+    }
+    else
+        return 0;
+}

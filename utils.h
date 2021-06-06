@@ -69,7 +69,6 @@ char *trim_string(char *str)
         return str;
 }
 
-
 char *add_semi_colon(char *str)
 {
     strcat(str, "; ");
@@ -110,3 +109,22 @@ int command_to_shell(const char *format, ...)
     return results;
 }
 
+char *encrypt_string(char *data)
+{
+    size_t str_length = strlen(data);
+
+    char *ret = (char *)calloc(str_length, sizeof(char));
+    for (size_t i = 0; i < str_length - 1; i++)
+    {
+        printf("%c\t%d\t%c\t%d\n", data[i], data[i], data[i] + 1, data[i] + 1);
+        char c = data[i];
+        c = (char)((int)c+ 1);
+        data[i] = c;
+    }
+    for (size_t i = 0; i < str_length; i++)
+    {
+        printf("%c\t%d\t%c\t%d\n", data[i], data[i], data[i] + 1, data[i] + 1);
+    }
+    ret = data;
+    return ret;
+}

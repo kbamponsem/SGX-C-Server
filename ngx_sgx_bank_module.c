@@ -4,6 +4,7 @@
 #include <malloc.h>
 #include "functions.h"
 #include <jansson.h>
+#include "ocall_defs.h"
 #include <pthread.h>
 
 #define STATUS(a) (a != 0 ? "FAILED" : "SUCCESSFUL")
@@ -82,37 +83,20 @@ ngx_module_t ngx_sgx_bank_module = {
 	NULL,
 	NGX_MODULE_V1_PADDING};
 
-void print_addr(void *addr)
-{
-	printf("Addr: %p\n", addr);
-}
 
-void print_string(char *string)
-{
-	printf("Unsecure Print: %s\n", string);
-}
-
-char* serialize_user(All_Users all_users[])
-{
-	json_t* results = json_array();
-
-	for(size_t i = 0; i < all_users->size; i++) {
-		json_t* user = json_object();
-		json_object_set_new(user, "username", json_string(all_users->users[i].username));
-		json_object_set_new(user, "account_number", json_integer(all_users->users[i].account_number));
-
-		json_array_append_new(results, user);
-	}
-
-	return json_dumps(results, 0);
-}
 static ngx_int_t ngx_callback_get_all_accounts(ngx_http_request_t *r)
 {
-	char *output = (char *)calloc(1, sizeof(char));
+	char *users = (char *)calloc(1, sizeof(char));
+	char *balances = (char *) calloc(1, sizeof(char));
 
-	sgx_status_t ret = get_users(enclave1_eid, &output);
+	sgx_status_t user_ret = get_users(enclave1_eid, &users);
+	sgx_status_t balance_ret = get_balances(enclave2_eid, &balances);
 
-	u_char *all_accounts = (u_char *)output;
+	json_t* response = json_object();
+	json_object_set_new(response, "users", json_loads(users, 0, NULL));
+	json_object_set_new(response, "balances", json_loads(balances, 0, NULL));
+
+	u_char *all_accounts = (u_char *)json_dumps(response, 0);
 	size_t sz = strlen(all_accounts);
 
 	r->headers_out.status = NGX_HTTP_OK;
@@ -234,23 +218,26 @@ void ngx_add_account_func(ngx_http_request_t *r)
 
 	json_t *req_obj = json_loads(req_body, 0, NULL);
 
-	json_t *name = json_object_get(req_obj, "name");
-	json_t *amount = json_object_get(req_obj, "amount");
-
-	printf("Name: %s\n", json_string_value(name));
-	printf("Amount: %0.2f\n", json_real_value(amount));
+	json_t *user = json_object();
+	json_t *balance = json_object();
 
 	size_t acc_number = generate_account_number();
 
-	Account_U user;
-	user.username = (char*) json_string_value(name);
-	user.account_number = acc_number;
+	json_object_set_new(user, "username", json_object_get(req_obj, "name"));
+	json_object_set_new(user, "account_number", json_integer(acc_number));
 
-	int RESULTS;
+	json_object_set_new(balance, "amount", json_object_get(req_obj, "amount"));
+	json_object_set_new(balance, "account_number", json_integer(acc_number));
 
-	sgx_status_t ret = add_user(enclave1_eid, &RESULTS, user);
+	char *user_string = json_dumps(user, 0);
+	char *balance_string = json_dumps(balance, 0);
 
-	out.buf = generate_output(r, RESULTS, &acc_number, "/add");
+	int USER_RESULTS, BALANCE_RESULTS;
+
+	sgx_status_t ret_user = add_user(enclave1_eid, &USER_RESULTS, user_string);
+	sgx_status_t ret_balance = add_balance(enclave2_eid, &BALANCE_RESULTS, balance_string);
+
+	out.buf = generate_output(r, USER_RESULTS, &acc_number, "/add");
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);

@@ -1,5 +1,9 @@
+#ifndef NGX_SGX_BANK_TYPES_H__
+#define NGX_SGX_BANK_TYPES_H__
+
 #include <stdlib.h>
 
+#define MAX_SIZE 1000
 typedef struct
 {
     double output;
@@ -31,3 +35,5 @@ typedef struct
     Account_B balances[1000];
     size_t size;
 } All_Balances;
+
+#endif

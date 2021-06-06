@@ -9,10 +9,8 @@
 #include "sgx_eid.h"   /* sgx_enclave_id_t */
 #include "sgx_trts.h"
 
-#include "Enclaves_u/Enclave1/Untrusted/Enclave_u.h"
-#include "Enclaves_u/Enclave2/Untrusted/Enclave_u.h"
-
-
+#include "Enclaves_u/Enclave1/Untrusted/UserEnclave_u.h"
+#include "Enclaves_u/Enclave2/Untrusted/BalanceEnclave_u.h"
 
 #define MAX_PATH FILENAME_MAX
 

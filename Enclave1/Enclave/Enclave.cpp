@@ -29,7 +29,7 @@
  *
  */
 
-#include "Enclave_t.h" /* print_string */
+#include "UserEnclave_t.h" /* print_string */
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,50 +38,31 @@
 
 static All_Users all_users[1];
 
-enclave_op secure_subtract(double a, double b)
+char *get_users()
 {
-    enclave_op op1 = {a - b, sgx_is_within_enclave(&a, sizeof(a))};
-    return op1;
-}
-
-char* get_users()
-{
-    char* output;
+    char *output;
     serialize_user(&output, all_users);
     return output;
 }
 
-int add_user(Account_U user)
+int add_user(char *user_string)
 {
+    Account_U user;
 
+    /*
+        For this step, user string would be encrypted with the Pk of Enclave1
+    */
+    user_string_to_account(&user, user_string);
     size_t curr_list_size = all_users->size;
 
     size_t new_list_size = curr_list_size + 1;
 
     if (user.username != NULL)
     {
-        Account_U new_users[1000];
-
-        for (size_t i = 0; i < curr_list_size; i++)
-        {
-            new_users[i] = all_users->users[i];
-        }
-
         all_users->users[curr_list_size] = user;
 
         all_users->size = new_list_size;
 
-        return 1;
-    }
-    else
-        return 0;
-}
-
-int decrypt_message(char *encrypted_message)
-{
-    EVP_CIPHER_CTX *ctx;
-    if (encrypted_message[0] == '1')
-    {
         return 1;
     }
     else

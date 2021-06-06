@@ -117,7 +117,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_Cpp_Files := Enclave/Enclave.cpp
-Enclave_Include_Paths := -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_SSL)/include -I$(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Include -I$(PROJ_DIR)/$(ENCLAVES_DIR)/Encalve1/Library/include
+Enclave_Include_Paths := -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_SSL)/include -I$(PROJ_DIR)/Include
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) 
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
@@ -148,17 +148,16 @@ untrusted:
 	@echo "Compiling untrusted code."
 
 	@mkdir -p $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted
-	@cp -r Include Library Enclave/Enclave.edl $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1
+	@cp -r $(PROJ_DIR)/Include Enclave/UserEnclave.edl $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1
 
 	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted && \
-	$(SGX_EDGER8R) --untrusted ../Enclave.edl \
+	$(SGX_EDGER8R) --untrusted ../UserEnclave.edl \
 	--search-path ../Enclave \
 	--search-path $(SGX_SDK)/include \
-	--search-path ../Include  \
-	--search-path ../Library/include && rm ../Enclave.edl
+	--search-path ../Include  && rm ../UserEnclave.edl
 
-	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/Enclave_u.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/Enclave_u.o
-	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/Enclave_u.c"
+	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.c"
 
 
 ######## Enclave Objects ########
@@ -166,22 +165,21 @@ trusted:
 	@echo "Compiling trusted code."
 	@cp -r Enclave $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1
 	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave && \
-	$(SGX_EDGER8R) --trusted Enclave.edl \
+	$(SGX_EDGER8R) --trusted UserEnclave.edl \
 	--search-path ../Enclave \
 	--search-path $(SGX_SDK)/include \
-	--search-path ../Include \
-	--search-path ../Library/include
+	--search-path ../Include 
 	
 	@cd -
-	@echo "GEN  =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave_t.c"
+	@echo "GEN  =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c"
 
-	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave_t.o
-	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave_t.c"
+	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c"
 
 	@$(CXX) $(Enclave_Cpp_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o 
 	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp"	
 
-	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave_t.o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name) \
+	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name) \
 	$(Enclave_Link_Flags) 
 
 	@echo "LINK =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name)"

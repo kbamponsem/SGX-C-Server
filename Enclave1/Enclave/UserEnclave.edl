@@ -29,20 +29,19 @@
  *
  */
 
-/* Enclave.edl - Top EDL file. */
+/* User_Enclave.edl - Top EDL file. */
 
 enclave {
-    include "../Include/types.h"
+    include "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Include/types.h"
 
     trusted {
-        public enclave_op secure_subtract(double a, double b);
-        public int decrypt_message([user_check] char* encrypted_message);
         public char* get_users();
-        public int add_user(Account_U user);
+        public int add_user([user_check] char* user_string);
     };
     untrusted {
         void print_addr([user_check] void* addr);
         char* serialize_user([in] All_Users *all_users);
         void print_string([user_check] char* string);
+        Account_U user_string_to_account([user_check] char* user_string);
     };
 };
