@@ -48,7 +48,6 @@ char *get_users()
 int add_user(char *user_string)
 {
     Account_U user;
-
     /*
         For this step, user string would be encrypted with the Pk of Enclave1
     */
@@ -67,4 +66,23 @@ int add_user(char *user_string)
     }
     else
         return 0;
+}
+
+int delete_user(char *string)
+{
+    Delete_Entry user;
+    int found = 0;
+
+    string_to_delete_entry(&user, string);
+
+    for (size_t i = 0; i < all_users->size; i++)
+    {
+        if (all_users->users[i].account_number == user.account_number)
+        {
+            all_users->users[i].deleted = 1;
+            found = 1;
+        }
+    }
+
+    return found;
 }

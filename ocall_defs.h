@@ -17,11 +17,14 @@ char *serialize_user(All_Users all_users[])
 
 	for (size_t i = 0; i < all_users->size; i++)
 	{
-		json_t *user = json_object();
-		json_object_set_new(user, "username", json_string(all_users->users[i].username));
-		json_object_set_new(user, "account_number", json_integer(all_users->users[i].account_number));
+		if (all_users->users[i].deleted == 0)
+		{
+			json_t *user = json_object();
+			json_object_set_new(user, "username", json_string(all_users->users[i].username));
+			json_object_set_new(user, "account_number", json_integer(all_users->users[i].account_number));
 
-		json_array_append_new(results, user);
+			json_array_append_new(results, user);
+		}
 	}
 
 	return json_dumps(results, 0);
@@ -33,11 +36,14 @@ char *serialize_balance(All_Balances all_balances[])
 
 	for (size_t i = 0; i < all_balances->size; i++)
 	{
-		json_t *balance = json_object();
-		json_object_set_new(balance, "amount", json_real(all_balances->balances[i].balance));
-		json_object_set_new(balance, "account_number", json_integer(all_balances->balances[i].account_number));
+		if (all_balances->balances[i].deleted == 0)
+		{
+			json_t *balance = json_object();
+			json_object_set_new(balance, "amount", json_real(all_balances->balances[i].balance));
+			json_object_set_new(balance, "account_number", json_integer(all_balances->balances[i].account_number));
 
-		json_array_append_new(results, balance);
+			json_array_append_new(results, balance);
+		}
 	}
 
 	return json_dumps(results, 0);
@@ -79,4 +85,15 @@ Balance_Entry string_to_balance_entry(char *string)
 	b_entry.amount = json_real_value(json_object_get(balance_entry, "amount"));
 
 	return b_entry;
+}
+
+Delete_Entry string_to_delete_entry(char *string)
+{
+	json_t *delete_entry = json_loads(string, 0, NULL);
+
+	Delete_Entry d_entry;
+
+	d_entry.account_number = json_integer_value(json_object_get(delete_entry, "account_number"));
+
+	return d_entry;
 }

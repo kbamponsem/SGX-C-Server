@@ -37,11 +37,13 @@ enclave {
     trusted {
         public char* get_users();
         public int add_user([user_check] char* user_string);
+        public int delete_user([user_check] char* string);
     };
     untrusted {
         void print_addr([user_check] void* addr);
         char* serialize_user([in] All_Users *all_users);
         void print_string([user_check] char* string);
         Account_U user_string_to_account([user_check] char* user_string);
+        Delete_Entry string_to_delete_entry([user_check] char* string);
     };
 };
