@@ -73,12 +73,6 @@ endif
 
 ######## App Settings ########
 
-ifneq ($(SGX_MODE), HW)
-	Urts_Library_Name := sgx_urts_sim
-else
-	Urts_Library_Name := sgx_urts
-endif
-
 C_FLAGS := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes -I$(SGX_SDK)/include
 
 # Three configuration modes - Debug, prerelease, release
@@ -93,18 +87,6 @@ else
         C_FLAGS += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
-App_Link_Flags := $(SGX_COMMON_CFLAGS) -L$(SGX_LIBRARY_PATH) -l$(Urts_Library_Name) -lpthread 
-
-ifneq ($(SGX_MODE), HW)
-	App_Link_Flags += -lsgx_uae_service_sim
-else
-	App_Link_Flags += -lsgx_uae_service
-endif
-
-App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
-
-App_Name := app
-
 ######## Enclave Settings ########
 
 ifneq ($(SGX_MODE), HW)
@@ -117,7 +99,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_Cpp_Files := Enclave/Enclave.cpp
-Enclave_Include_Paths := -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_SSL)/include -I$(PROJ_DIR)/Include
+Enclave_Include_Paths := -IEnclave  -I$(SGX_SDK)/include -I$(SGX_SDK)/include/libcxx -I$(SGX_SDK)/include/tlibc -I$(SGX_SSL)/include -I$(SGX_SSL)/include/openssl -I$(PROJ_DIR)/Include 
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) 
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
@@ -129,9 +111,13 @@ Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
 #       Use `--start-group' and `--end-group' to link these libraries.
 # Do NOT move the libraries linked with `--start-group' and `--end-group' within `--whole-archive' and `--no-whole-archive' options.
 # Otherwise, you may get some undesirable errors.
-Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
+SGX_SSL_Link_Flags := -L$(SGX_SSL)/lib64 -Wl,--whole-archive -lsgx_tsgxssl -Wl,--no-whole-archive -lsgx_tsgxssl_crypto
+Security_Link_Flags := -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -pie
+Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles \
+	$(Security_Link_Flags) \
+	$(SGX_SSL_Link_Flags) -L$(SGX_LIBRARY_PATH)  \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
-	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
+	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_pthread -l$(Crypto_Library_Name) -l$(Service_Library_Name)  -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
@@ -154,6 +140,7 @@ untrusted:
 	$(SGX_EDGER8R) --untrusted ../UserEnclave.edl \
 	--search-path ../Enclave \
 	--search-path $(SGX_SDK)/include \
+	--search-path $(SGX_SSL)/include \
 	--search-path ../Include  && rm ../UserEnclave.edl
 
 	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.o
@@ -168,6 +155,7 @@ trusted:
 	$(SGX_EDGER8R) --trusted UserEnclave.edl \
 	--search-path ../Enclave \
 	--search-path $(SGX_SDK)/include \
+	--search-path $(SGX_SSL)/include \
 	--search-path ../Include 
 	
 	@cd -
@@ -176,12 +164,11 @@ trusted:
 	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o
 	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c"
 
-	@$(CXX) $(Enclave_Cpp_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o 
+	@$(CXX) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o 	
 	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp"	
 
-	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name) \
+	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name) \
 	$(Enclave_Link_Flags) 
-
 	@echo "LINK =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name)"
 
  

@@ -32,7 +32,6 @@ char *remove_garbage_chars(char *str)
 {
 
     size_t str_len = strlen(str);
-    fprintf(stderr, "%s -> (%s, %lu)\n", __func__, str, str_len);
     size_t end = 0;
     for (size_t i = str_len - 1; i > 0; i--)
     {
@@ -42,11 +41,8 @@ char *remove_garbage_chars(char *str)
         }
     }
     end += 1UL;
-    fprintf(stderr, "Endpoint: %lu\n", end);
     char *_str = (char *)calloc(end, sizeof(char));
     strncpy(_str, str, end);
-
-    fprintf(stderr, "%s -> (%s)\n", __func__, str);
 
     return _str;
 }
@@ -58,7 +54,6 @@ char *trim_string(char *str)
     size_t str_len = strlen(str);
 
     int last_character = (int)str[str_len - 1];
-    fprintf(stderr, "%s -> (%s, %lu, %d)\n", __func__, str, str_len, (char)last_character);
     if (last_character < 0)
     {
         char *_str = (char *)calloc(str_len - 1, sizeof(char));

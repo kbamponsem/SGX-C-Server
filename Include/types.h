@@ -2,8 +2,10 @@
 #define NGX_SGX_BANK_TYPES_H__
 
 #include <stdlib.h>
-
 #define MAX_SIZE 100000
+
+typedef unsigned char u_char;
+
 typedef struct
 {
     double output;
@@ -15,8 +17,8 @@ typedef long long big_int;
 typedef struct
 {
     char *username;
+    char *password;
     big_int account_number;
-    int deleted;
 } Account_U;
 
 typedef struct
@@ -38,14 +40,14 @@ typedef struct
     size_t size;
 } All_Balances;
 
-typedef struct {
-    char *type;
-    big_int account_number;
-    float amount;
-} Balance_Entry;
+struct SessionEntry
+{
+    big_int id;
+    char *session_id;
+    struct SessionEntry *left_entry;
+    struct SessionEntry *right_entry;
+};
 
-typedef struct {
-    big_int account_number;
-} Delete_Entry;
+typedef struct SessionEntry SessionEntry;
 
 #endif

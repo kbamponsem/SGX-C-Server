@@ -32,18 +32,22 @@
 /* User_Enclave.edl - Top EDL file. */
 
 enclave {
+    from "sgx_pthread.edl" import *;
+    from "sgx_tsgxssl.edl" import *;
+
     include "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Include/types.h"
 
     trusted {
-        public char* get_users();
-        public int add_user([user_check] char* user_string);
-        public int delete_user([user_check] char* string);
+        public int create_account([user_check] char* username, [user_check] char* password, big_int acc_number);
+        public int generate_keys();
+        public void get_pub_key([user_check] char* pub_key_cpy);
+        public int create_session(big_int id, [user_check] char* encrypted_session_id);
+        public int login(big_int account_number, [user_check] char* password);
+        public void get_user_session_id(big_int id, [user_check] char* session_id);
+        public int remove_session_id(big_int id);
     };
     untrusted {
-        void print_addr([user_check] void* addr);
-        char* serialize_user([in] All_Users *all_users);
-        void print_string([user_check] char* string);
-        Account_U user_string_to_account([user_check] char* user_string);
-        Delete_Entry string_to_delete_entry([user_check] char* string);
+        void print_string([in, string] char* string);
+        big_int get_random_number();
     };
 };

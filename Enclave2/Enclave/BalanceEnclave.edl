@@ -44,7 +44,5 @@ enclave {
     untrusted {
         char* serialize_balance([in] All_Balances *all_balances);
         Account_B balance_string_to_account([user_check] char* balance_string);
-        Balance_Entry string_to_balance_entry([user_check] char* string);
-        Delete_Entry string_to_delete_entry([user_check] char* string);
     };
 };

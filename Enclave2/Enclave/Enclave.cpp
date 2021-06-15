@@ -70,47 +70,14 @@ int add_balance(char *balance_string)
 
 int operation(char *string)
 {
-    Balance_Entry b_entry;
     int found = 0;
-
-    string_to_balance_entry(&b_entry, string);
-
-    if (b_entry.amount <= 0)
-        return 0;
-
-    for (size_t i = 0; i < all_balances->size; i++)
-    {
-        if (all_balances->balances[i].account_number == b_entry.account_number)
-        {
-            if (b_entry.type[0] == 'W')
-            { /* W -> Withdrawal */
-                all_balances->balances[i].balance -= b_entry.amount;
-            }
-            else if (b_entry.type[0] == 'D')
-            { /* D -> Deposit */
-                all_balances->balances[i].balance += b_entry.amount;
-            }
-
-            found = 1;
-        }
-    }
     return found;
 }
 
 int delete_balance(char *string)
 {
-    Delete_Entry balance;
     int found = 0;
 
-    string_to_delete_entry(&balance, string);
 
-    for (size_t i = 0; i < all_balances->size; i++)
-    {
-        if (all_balances->balances[i].account_number == balance.account_number)
-        {
-            all_balances->balances[i].deleted = 1;
-            found = 1;
-        }
-    }
     return found;
 }
