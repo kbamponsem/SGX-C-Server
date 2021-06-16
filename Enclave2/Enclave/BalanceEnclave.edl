@@ -32,17 +32,23 @@
 /* Enclave.edl - Top EDL file. */
 
 enclave {
+
+    from "sgx_pthread.edl" import *;
+    from "sgx_tsgxssl.edl" import *;
+
     include "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Include/types.h"
+    // include "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Include/JSON.hpp"
 
     trusted {
-        public char* get_balances();
-        public int add_balance([user_check] char* balance_string);
-        public int operation([user_check] char* string);
-        public int delete_balance([user_check] char* string);
+        public int enclave2_create_session(big_int id, [user_check] char* encrypted_session_id);
+        public void enclave2_get_pub_key([user_check] char* pub_key_cpy);
+        public int enclave2_generate_keys();
+        public int get_balance(big_int id, [user_check] char* balance_string);
     };
 
     untrusted {
-        char* serialize_balance([in] All_Balances *all_balances);
-        Account_B balance_string_to_account([user_check] char* balance_string);
+        void enclave2_print_string([in, string] char* string);
+        void print_number(big_int number);
     };
+
 };

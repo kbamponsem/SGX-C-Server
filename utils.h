@@ -49,6 +49,8 @@ char *remove_garbage_chars(char *str)
 
 char *trim_string(char *str)
 {
+    if (str == NULL)
+        return NULL;
     str = remove_garbage_chars(str);
 
     size_t str_len = strlen(str);
@@ -113,7 +115,7 @@ char *encrypt_string(char *data)
     {
         printf("%c\t%d\t%c\t%d\n", data[i], data[i], data[i] + 1, data[i] + 1);
         char c = data[i];
-        c = (char)((int)c+ 1);
+        c = (char)((int)c + 1);
         data[i] = c;
     }
     for (size_t i = 0; i < str_length; i++)

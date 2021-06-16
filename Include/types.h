@@ -23,8 +23,8 @@ typedef struct
 
 typedef struct
 {
-    float balance;
     big_int account_number;
+    float balance;
     int deleted;
 } Account_B;
 

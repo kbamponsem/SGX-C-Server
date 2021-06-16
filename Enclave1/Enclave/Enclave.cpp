@@ -35,6 +35,7 @@
 #include <sgx_tprotected_fs.h>
 #include <sgx_trts.h>
 #include <unordered_map>
+#include <unordered_set>
 #include "UserEnclave_t.h" /* print_string */
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
@@ -43,15 +44,37 @@
 #define KEY_LENGTH 2048
 
 static All_Users all_users[1];
-char *pri_key = NULL; // private key
-char *pub_key = NULL;
+
+static char *pri_key = NULL; // private key
+static char *pub_key = NULL;
 
 static std::unordered_map<big_int, char *> sessions;
+static std::unordered_set<char *> registered_users;
 
-int create_session(big_int id, char *encrypted_session_id);
+int enclave1_create_session(big_int id, char *encrypted_session_id);
 char *get_session_id(big_int id);
 char *decrypt_session_key(char *encrypted_session_key);
 int remove_session_id(big_int id);
+
+int user_registered(char *username)
+{
+    std::unordered_set<char *>::const_iterator obj = registered_users.find(username);
+
+    if (obj != registered_users.end())
+        if (*obj == username)
+        {
+            print_string(*obj);
+            return 1;
+        }
+
+    return 0;
+}
+
+void add_to_registered_users(char *username)
+{
+    if (user_registered(username) != 1)
+        registered_users.insert(username);
+}
 
 int users_in_enclave()
 {
@@ -60,6 +83,9 @@ int users_in_enclave()
 
 int create_account(char *username, char *password, big_int acc_number)
 {
+    // print_string(username);
+    // add_to_registered_users(username);
+
     Account_U user = {username, password, acc_number};
 
     size_t curr_list_size = all_users->size;
@@ -85,7 +111,7 @@ int login(big_int account_number, char *password)
     return 0;
 }
 
-void get_pub_key(char *pub_key_cpy)
+void enclave1_get_pub_key(char *pub_key_cpy)
 {
     strncpy(pub_key_cpy, pub_key, strlen(pub_key));
 }
@@ -111,15 +137,13 @@ char *decrypt_session_key(char *encrypted_session_key)
     int stat;
     RSA *r = create_RSA((u_char *)pri_key, 0);
     u_char *message;
-    // do
-    // {
     message = (u_char *)calloc(4098, sizeof(u_char));
     stat = RSA_private_decrypt(strlen(encrypted_session_key), (const u_char *)encrypted_session_key, message, r, RSA_PKCS1_PADDING);
-    // } while (stat < 0);
-
+    if (stat == -1)
+        return NULL;
     return (char *)message;
 }
-int generate_keys()
+int enclave1_generate_keys()
 {
     int ret = 0;
     RSA *keypair = NULL;
@@ -141,9 +165,9 @@ int generate_keys()
     BIO *pri = BIO_new(BIO_s_mem());
     BIO *pub = BIO_new(BIO_s_mem());
 
-    PEM_write_bio_RSAPrivateKey(pri, keypair, NULL, NULL, 0, NULL, NULL);
+    ret = PEM_write_bio_RSAPrivateKey(pri, keypair, NULL, NULL, 0, NULL, NULL);
 
-    PEM_write_bio_RSA_PUBKEY(pub, keypair);
+    ret = PEM_write_bio_RSA_PUBKEY(pub, keypair);
 
     pri_len = BIO_pending(pri);
     pub_len = BIO_pending(pub);
@@ -151,22 +175,25 @@ int generate_keys()
     pri_key = (char *)malloc(pri_len + 1);
     pub_key = (char *)malloc(pub_len + 1);
 
-    BIO_read(pri, pri_key, pri_len);
-    BIO_read(pub, pub_key, pub_len);
+    ret = BIO_read(pri, pri_key, pri_len);
+    ret = BIO_read(pub, pub_key, pub_len);
 
     BIO_free_all(pub);
     BIO_free_all(pri);
 
-    // sessions = new std::map<big_int, char *>();
-
     return ret;
 }
 
-int create_session(big_int id, char *encrypted_session_id)
+int enclave1_create_session(big_int id, char *encrypted_session_id)
 {
     std::unordered_map<big_int, char *>::const_iterator obj = sessions.find(id);
     char *session_id = decrypt_session_key(encrypted_session_id);
 
+    // print_string(session_id);
+    if (session_id == NULL)
+    {
+        return 0;
+    }
     if (obj != sessions.end())
         if (obj->first == id)
             return 0;
@@ -211,26 +238,28 @@ int remove_session_id(big_int id)
     return 0;
 }
 
-int aes_init(unsigned char *key_data, int key_data_len, unsigned char *salt, EVP_CIPHER_CTX *e_ctx, 
+int aes_init(unsigned char *key_data, int key_data_len, unsigned char *salt, EVP_CIPHER_CTX *e_ctx,
              EVP_CIPHER_CTX *d_ctx)
 {
-//   int i, nrounds = 5;
-  unsigned char key[32], iv[16];
-  
-//   /*
-//    * Gen key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
-//    * nrounds is the number of times the we hash the material. More rounds are more secure but
-//    * slower.
-//    */
-//   i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), salt, key_data, key_data_len, nrounds, key, iv);
-//   if (i != 32) {
-//     return -1;
-//   }
+    int i, nrounds = 5;
+    unsigned char key[32], iv[32];
 
-  EVP_CIPHER_CTX_init(e_ctx);
-  EVP_EncryptInit_ex(e_ctx, EVP_aes_256_gcm(), NULL, key, iv);
-  EVP_CIPHER_CTX_init(d_ctx);
-  EVP_DecryptInit_ex(d_ctx, EVP_aes_256_gcm(), NULL, key, iv);
+    /*
+   * Gen key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
+   * nrounds is the number of times the we hash the material. More rounds are more secure but
+   * slower.
+   */
+    i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), salt, key_data, key_data_len, nrounds, key, iv);
+    if (i != 32)
+    {
+        // printf("Key size is %d bits - should be 256 bits\n", i);
+        return -1;
+    }
 
-  return 0;
+    EVP_CIPHER_CTX_init(e_ctx);
+    EVP_EncryptInit_ex(e_ctx, EVP_aes_256_cbc(), NULL, key, iv);
+    EVP_CIPHER_CTX_init(d_ctx);
+    EVP_DecryptInit_ex(d_ctx, EVP_aes_256_cbc(), NULL, key, iv);
+
+    return 0;
 }
