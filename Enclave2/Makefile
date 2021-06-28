@@ -181,7 +181,7 @@ trusted:
 
 	@rm -rf $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave2/Enclave
 
-nginx_sgx: clean untrusted trusted
+nginx_sgx: untrusted trusted
 
 .PHONY: clean
 

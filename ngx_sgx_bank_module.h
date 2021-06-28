@@ -109,6 +109,17 @@ RSA *create_RSA(char *pub_key)
     return r;
 }
 
+char *public_encrypt(char *public_key, char *raw_text)
+{
+    char *message = (char *)calloc(4098, sizeof(char));
+    char *encrypted = (char *)calloc(4098, sizeof(char));
+
+    strcpy(message, raw_text);
+    RSA_public_encrypt(strlen(message), message, encrypted, create_RSA(public_key), RSA_PKCS1_PADDING);
+
+    return encrypted;
+}
+
 static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *cf)
 {
     json_t *root = json_load_file("/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/enclaves_u.json", 0, NULL);

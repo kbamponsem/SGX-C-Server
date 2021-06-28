@@ -164,7 +164,7 @@ trusted:
 	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o
 	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c"
 
-	@$(CXX) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o 	
+	@$(CXX) $(Enclave_C_Flags) -Wno-write-strings -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o 	
 	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp"	
 
 	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name) \
@@ -181,7 +181,7 @@ trusted:
 
 	@rm -rf $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave
 
-nginx_sgx: clean untrusted trusted
+nginx_sgx: untrusted trusted
 
 .PHONY: clean
 

@@ -64,16 +64,7 @@ static ngx_int_t ngx_callback_logout(ngx_http_request_t *r)
 
 	return NGX_DONE;
 }
-char *public_encrypt(char *public_key, char *raw_text)
-{
-	char *message = (char *)calloc(4098, sizeof(char));
-	char *encrypted = (char *)calloc(4098, sizeof(char));
 
-	strcpy(message, raw_text);
-	RSA_public_encrypt(strlen(message), message, encrypted, create_RSA(public_key), RSA_PKCS1_PADDING);
-
-	return encrypted;
-}
 static ngx_int_t ngx_callback_get_enclave_pub_keys(ngx_http_request_t *r)
 {
 
@@ -90,13 +81,6 @@ static ngx_int_t ngx_callback_get_enclave_pub_keys(ngx_http_request_t *r)
 
 	json_object_set_new(response, "enclave1_pub_key", json_string(enclave1_pub_key));
 	json_object_set_new(response, "enclave2_pub_key", json_string(enclave2_pub_key));
-
-	/*
-		Test pubkey decryption
-	*/
-	char *message = (char *)calloc(4098, sizeof(char));
-	char *encrypted = (char *)calloc(4098, sizeof(char));
-	char *decrypted = (char *)calloc(4098, sizeof(char));
 
 	int stat;
 
@@ -121,9 +105,6 @@ static ngx_int_t ngx_callback_get_enclave_pub_keys(ngx_http_request_t *r)
 
 	out.buf = b;
 	out.next = NULL;
-	free(message);
-	free(encrypted);
-	free(enclave1_pub_key);
 	return ngx_http_output_filter(r, &out);
 }
 
@@ -239,8 +220,6 @@ void ngx_get_balance_func(ngx_http_request_t *r)
 
 	sgx_status_t ret = get_balance(enclave2_eid, &RESULTS, account_number, balance_string);
 
-	print_string(balance_string);
-
 	out.buf = generate_output(r, RESULTS, balance_string, NULL);
 	out.next = NULL;
 
@@ -277,10 +256,12 @@ void ngx_logout_func(ngx_http_request_t *r)
 
 	ngx_http_finalize_request(r, rc);
 }
+
 void ngx_receive_id_and_key_func(ngx_http_request_t *r)
 {
 	ngx_int_t rc;
 	ngx_chain_t out;
+	int RESULTS = 0;
 
 	if (r->request_body == NULL)
 	{
@@ -288,19 +269,26 @@ void ngx_receive_id_and_key_func(ngx_http_request_t *r)
 		return;
 	}
 
-	char *req_body = trim_string((char *)r->request_body->bufs->buf->pos);
+	char *req_body = (char *)r->request_body->bufs->buf->pos;
 
 	json_t *req_obj = json_loads(req_body, 0, NULL);
+	printf("%s\n", json_dumps(req_obj, 1));
 
 	big_int account_number = json_number_value(json_object_get(req_obj, "account_number"));
 	char *enc1_symmetric_key = (char *)json_string_value(json_object_get(req_obj, "enclave1_symmetric_key"));
-	char *enc2_symmetric_key = (char *)json_string_value(json_object_get(req_obj, "enclave2_symmetric_key"));
 
-	int RESULTS = 0;
+	// fflush(stdout);
+	// printf("Enclave1_pubkey: %s\n", base64_encode(base64_decode(enc1_symmetric_key)));
+	// fflush(stdout);
 
-	sgx_status_t ret = enclave1_create_session(enclave1_eid, &RESULTS, account_number, enc1_symmetric_key);
-
-	ret = enclave2_create_session(enclave2_eid, &RESULTS, account_number, enc2_symmetric_key);
+	char *dec = base64_decode(enc1_symmetric_key);
+	if (dec != NULL)
+	{
+		sgx_status_t ret = enclave1_create_session(enclave1_eid, &RESULTS, account_number, dec);
+	}
+	// {
+	// 	// ret = enclave2_create_session(enclave2_eid, &RESULTS, account_number, enc2_symmetric_key);
+	// }
 
 	out.buf = generate_output(r, RESULTS, NULL, NULL);
 	out.next = NULL;

@@ -143,7 +143,6 @@ char *JSON::json_dumps(std::vector<std::pair<char *, char *>> kv)
 
     v.push_back("{");
 
-    print_number(kv.size());
     for (size_t i = 0; i < kv.size(); i++)
     {
         v.push_back("\"");
@@ -159,7 +158,6 @@ char *JSON::json_dumps(std::vector<std::pair<char *, char *>> kv)
             v.push_back(", ");
     }
     v.push_back("}");
-    print_number(v.size());
 
     char *out = (char *)calloc(get_vector_str_len(v), sizeof(char));
     for (auto el : v)
@@ -172,7 +170,7 @@ char *JSON::json_dumps(std::vector<std::pair<char *, char *>> kv)
 void initialize_balance(big_int id)
 {
 
-    Account_B b = {id, 23.5, 0};
+    Account_B b = {id, 23.58, 0};
 
     size_t curr_list_size = all_balances->size;
 
@@ -211,13 +209,15 @@ int delete_balance(char *string)
 RSA *create_RSA(u_char *pub_key, int type)
 {
     RSA *r = RSA_new();
-    BIO *bio = BIO_new_mem_buf(pub_key, -1);
+    BIO *bio;
     if (type == 1)
     {
-        r = PEM_read_bio_RSAPublicKey(bio, &r, NULL, NULL);
+        bio = BIO_new_mem_buf(pub_key, -1);
+        r = PEM_read_bio_RSA_PUBKEY(bio, &r, NULL, NULL);
     }
     else
     {
+        bio = BIO_new_mem_buf(pri_key, -1);
         r = PEM_read_bio_RSAPrivateKey(bio, &r, NULL, NULL);
     }
 
@@ -228,18 +228,45 @@ char *decrypt_session_key(char *encrypted_session_key)
     int stat;
     RSA *r = create_RSA((u_char *)pri_key, 0);
     u_char *message;
+    print_number(__func__, r == NULL ? 101 : 103);
     message = (u_char *)calloc(4096, sizeof(u_char));
-    stat = RSA_private_decrypt((int)strlen(encrypted_session_key), (const u_char *)encrypted_session_key, message, r, RSA_PKCS1_PADDING);
+    stat = RSA_private_decrypt(strlen(encrypted_session_key), (const u_char *)encrypted_session_key, message, r, RSA_PKCS1_PADDING);
 
-    if (stat == -1)
-        return NULL;
+    print_number(__func__, stat);
     return (char *)message;
+}
+
+char *public_encrypt(char *word)
+{
+    int stat;
+    RSA *r = create_RSA((u_char *)pub_key, 1);
+    u_char *message;
+    print_number(__func__, r == NULL ? 101 : 103);
+    message = (u_char *)calloc(4096, sizeof(u_char));
+    if (r != NULL)
+    {
+        stat = RSA_public_encrypt(strlen(word), (const u_char *)word, message, r, RSA_PKCS1_PADDING);
+        return (char *)message;
+    }
+    return NULL;
 }
 
 int enclave2_create_session(big_int id, char *encrypted_session_id)
 {
     all_balances->size = 0;
     std::unordered_map<big_int, char *>::const_iterator obj = sessions.find(id);
+
+    char *enc = public_encrypt(encrypted_session_id);
+
+    char *dec = decrypt_session_key(enc);
+
+    print_number(__func__, dec == NULL ? 22 : 11);
+
+    // enclave2_print_string(encrypted_session_id);
+
+    enclave2_print_string(enc);
+    enclave2_print_string(dec);
+    print_number(__func__, strlen(dec));
 
     if (obj != sessions.end())
         if (obj->first == id)
@@ -248,44 +275,16 @@ int enclave2_create_session(big_int id, char *encrypted_session_id)
         {
             sessions.insert(std::pair<big_int, char *>(id, encrypted_session_id));
             initialize_balance(id);
-
-            print_number(all_balances->size);
             return 1;
         }
     else
     {
         sessions.insert(std::pair<big_int, char *>(id, encrypted_session_id));
         initialize_balance(id);
-
-        print_number(all_balances->size);
         return 1;
     }
 
     return 0;
-}
-
-size_t get_vector_string_length(std::vector<char *> v)
-{
-    size_t big_size = 0;
-
-    for (size_t i = 0; i < v.size(); i++)
-    {
-        big_size += strlen(v[i]);
-    }
-    return big_size;
-}
-
-char *join_string(std::vector<char *> str_vector)
-{
-
-    if (str_vector.size() != 0)
-    {
-        char *output = (char *)(get_vector_string_length(str_vector), sizeof(char));
-
-        // print_string(output);
-        return "HELLO";
-    }
-    return NULL;
 }
 
 int get_balance(big_int id, char *balance_string)
@@ -295,7 +294,6 @@ int get_balance(big_int id, char *balance_string)
     std::vector<char *> json_string;
     JSON json;
     char *value;
-    print_number(id);
 
     for (size_t i = 0; i < all_balances->size; i++)
     {

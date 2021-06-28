@@ -40,7 +40,7 @@ enclave {
     // include "/home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank/Include/JSON.hpp"
 
     trusted {
-        public int enclave2_create_session(big_int id, [user_check] char* encrypted_session_id);
+        public int enclave2_create_session(big_int id, [in, string] char* encrypted_session_id);
         public void enclave2_get_pub_key([user_check] char* pub_key_cpy);
         public int enclave2_generate_keys();
         public int get_balance(big_int id, [user_check] char* balance_string);
@@ -48,7 +48,7 @@ enclave {
 
     untrusted {
         void enclave2_print_string([in, string] char* string);
-        void print_number(big_int number);
+        void print_number([in, string] const char* func_name, big_int number);
     };
 
 };

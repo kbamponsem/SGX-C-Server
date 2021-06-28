@@ -45,8 +45,8 @@
 
 static All_Users all_users[1];
 
-static char *pri_key = NULL; // private key
-static char *pub_key = NULL;
+char *pri_key = NULL;
+char *pub_key = NULL;
 
 static std::unordered_map<big_int, char *> sessions;
 static std::unordered_set<char *> registered_users;
@@ -63,7 +63,7 @@ int user_registered(char *username)
     if (obj != registered_users.end())
         if (*obj == username)
         {
-            print_string(*obj);
+            print_string(__func__, NULL, *obj);
             return 1;
         }
 
@@ -83,9 +83,6 @@ int users_in_enclave()
 
 int create_account(char *username, char *password, big_int acc_number)
 {
-    // print_string(username);
-    // add_to_registered_users(username);
-
     Account_U user = {username, password, acc_number};
 
     size_t curr_list_size = all_users->size;
@@ -116,33 +113,38 @@ void enclave1_get_pub_key(char *pub_key_cpy)
     strncpy(pub_key_cpy, pub_key, strlen(pub_key));
 }
 
-RSA *create_RSA(u_char *pub_key, int type)
+RSA *create_RSA(int type)
 {
     RSA *r = RSA_new();
-    BIO *bio = BIO_new_mem_buf(pub_key, -1);
+    print_string(__func__, NULL, r == NULL ? "RSA object is null" : "RSA object is full");
     if (type == 1)
     {
-        r = PEM_read_bio_RSAPublicKey(bio, &r, NULL, NULL);
+        BIO *bio = BIO_new_mem_buf(pub_key, -1);
+        print_number(__func__, bio == NULL ? 2010 : -2);
+        r = PEM_read_bio_RSA_PUBKEY(bio, &r, NULL, NULL);
+        print_number(__func__, r == NULL ? 2005 : -3);
+        return r;
     }
     else
     {
+        BIO *bio = BIO_new_mem_buf(pri_key, -1);
+        print_number(__func__, bio == NULL ? 201 : -5);
         r = PEM_read_bio_RSAPrivateKey(bio, &r, NULL, NULL);
+        print_number(__func__, r == NULL ? 205 : -8);
+        return r;
     }
-
-    return r;
 }
 
 char *decrypt_session_key(char *encrypted_session_key)
 {
     int stat;
-    RSA *r = create_RSA((u_char *)pri_key, 0);
+    RSA *r = create_RSA(0);
     u_char *message;
-    message = (u_char *)calloc(4098, sizeof(u_char));
+    message = (u_char *)calloc(1024, sizeof(u_char));
     stat = RSA_private_decrypt(strlen(encrypted_session_key), (const u_char *)encrypted_session_key, message, r, RSA_PKCS1_PADDING);
-    if (stat == -1)
-        return NULL;
     return (char *)message;
 }
+
 int enclave1_generate_keys()
 {
     int ret = 0;
@@ -184,29 +186,52 @@ int enclave1_generate_keys()
     return ret;
 }
 
-int enclave1_create_session(big_int id, char *encrypted_session_id)
+char *public_encrypt(char *word)
+{
+    int stat;
+    RSA *r = create_RSA(1);
+    unsigned char *message;
+    message = (unsigned char *)calloc(2048, sizeof(unsigned char));
+
+    if (r != NULL)
+    {
+        stat = RSA_public_encrypt((int)strlen(word), (const unsigned char *)word, message, r, RSA_PKCS1_PADDING);
+        return (char *)message;
+    }
+    else
+        return NULL;
+}
+int enclave1_create_session(big_int id, const char *encrypted_session_id)
 {
     std::unordered_map<big_int, char *>::const_iterator obj = sessions.find(id);
-    char *session_id = decrypt_session_key(encrypted_session_id);
 
-    // print_string(session_id);
-    if (session_id == NULL)
-    {
-        return 0;
-    }
-    if (obj != sessions.end())
-        if (obj->first == id)
-            return 0;
-        else
-        {
-            sessions.insert(std::pair<big_int, char *>(id, session_id));
-            return 1;
-        }
-    else
-    {
-        sessions.insert(std::pair<big_int, char *>(id, session_id));
-        return 1;
-    }
+    print_string(__func__, encrypted_session_id, NULL);
+
+    char *dec = decrypt_session_key((char *)encrypted_session_id);
+    print_string(__func__, NULL, dec);
+    // if (s != NULL)
+    //     print_string(__func__, base64((unsigned char *)s, strlen(s)));
+    // char *session_id = decrypt_session_key(encrypted_session_id);
+
+    // print_string(__func__, session_id);
+
+    // if (session_id == NULL)
+    // {
+    //     return 0;
+    // }
+    // if (obj != sessions.end())
+    //     if (obj->first == id)
+    //         return 0;
+    //     else
+    //     {
+    //         sessions.insert(std::pair<big_int, char *>(id, session_id));
+    //         return 1;
+    //     }
+    // else
+    // {
+    //     sessions.insert(std::pair<big_int, char *>(id, session_id));
+    //     return 1;
+    // }
     return 0;
 }
 
