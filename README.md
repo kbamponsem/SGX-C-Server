@@ -23,6 +23,8 @@ Currently, the api for RSA decryption in the enclaves is not working properly, a
 
 Also, the JSON library (Jansson) cannot successfully handle UTF-8 strings passed from the web client. I had to encode the string in base64 and decode it into UTF-8 in the nginx module but the decoding is also not working properly, so it is very hard to send encrypted data to the enclaves.
 
+Also, a copy of the `nginx.conf` file is placed in the `copies` directory. This contains very important additions that without it, starting the server will be impossible.
+
 This is a link to the web client:
 
 - [Web Client](https://github.com/kbamponsem/sgx-bank-client.git)
