@@ -116,7 +116,7 @@ void enclave1_get_pub_key(char *pub_key_cpy)
 RSA *create_RSA(int type)
 {
     RSA *r = RSA_new();
-    print_string(__func__, NULL, r == NULL ? "RSA object is null" : "RSA object is full");
+    print_string(__func__, NULL, (char *)(r == NULL ? "RSA object is null" : "RSA object is full"));
     if (type == 1)
     {
         BIO *bio = BIO_new_mem_buf(pub_key, -1);
@@ -201,38 +201,11 @@ char *public_encrypt(char *word)
     else
         return NULL;
 }
-int enclave1_create_session(big_int id, const char *encrypted_session_id)
+int enclave1_create_session(big_int id, char *encrypted_session_id)
 {
-    std::unordered_map<big_int, char *>::const_iterator obj = sessions.find(id);
-
-    print_string(__func__, encrypted_session_id, NULL);
-
-    char *dec = decrypt_session_key((char *)encrypted_session_id);
-    print_string(__func__, NULL, dec);
-    // if (s != NULL)
-    //     print_string(__func__, base64((unsigned char *)s, strlen(s)));
-    // char *session_id = decrypt_session_key(encrypted_session_id);
-
-    // print_string(__func__, session_id);
-
-    // if (session_id == NULL)
-    // {
-    //     return 0;
-    // }
-    // if (obj != sessions.end())
-    //     if (obj->first == id)
-    //         return 0;
-    //     else
-    //     {
-    //         sessions.insert(std::pair<big_int, char *>(id, session_id));
-    //         return 1;
-    //     }
-    // else
-    // {
-    //     sessions.insert(std::pair<big_int, char *>(id, session_id));
-    //     return 1;
-    // }
-    return 0;
+    // std::unordered_map<big_int, char *>::const_iterator obj = sessions.find(id);
+    print_string(__func__, NULL, encrypted_session_id);
+    return 1;
 }
 
 void get_user_session_id(big_int id, char *session_id)
@@ -270,10 +243,10 @@ int aes_init(unsigned char *key_data, int key_data_len, unsigned char *salt, EVP
     unsigned char key[32], iv[32];
 
     /*
-   * Gen key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
-   * nrounds is the number of times the we hash the material. More rounds are more secure but
-   * slower.
-   */
+     * Gen key & IV for AES 256 CBC mode. A SHA1 digest is used to hash the supplied key material.
+     * nrounds is the number of times the we hash the material. More rounds are more secure but
+     * slower.
+     */
     i = EVP_BytesToKey(EVP_aes_256_cbc(), EVP_sha1(), salt, key_data, key_data_len, nrounds, key, iv);
     if (i != 32)
     {

@@ -41,14 +41,14 @@ enclave {
         public int create_account([user_check] char* username, [user_check] char* password, big_int acc_number);
         public int enclave1_generate_keys();
         public void enclave1_get_pub_key([user_check] char* pub_key_cpy);
-        public int enclave1_create_session(big_int id, [user_check] const char* encrypted_session_id);
+        public int enclave1_create_session(big_int id, [user_check] char* encrypted_session_id);
         public int login(big_int account_number, [user_check] char* password);
         public void get_user_session_id(big_int id, [user_check] char* session_id);
         public int remove_session_id(big_int id);
         public void add_to_registered_users([user_check]char* username);
     };
     untrusted {
-        void print_string([in, string] const char* func_name, [user_check] const char* string, [in, string] const char* enc_string);
+        void print_string([in, string] const char* func_name, [user_check] char* string, [in, string] char* enc_string);
         void print_number([in, string] const char* func_name, big_int number);
         big_int get_random_number();
     };

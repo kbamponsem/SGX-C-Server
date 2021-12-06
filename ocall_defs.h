@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <jansson.h>
 #include <openssl/ec.h>
 #include <openssl/pem.h>
@@ -10,9 +11,10 @@ void print_addr(void *addr)
 	printf("Addr: %p\n", addr);
 }
 
-void print_string(const char *func_name, const char *string, const char *enc_string)
+void print_string(const char *func_name, char *string, char *enc_string)
 {
-	printf("%s: %s\n\t%s\n", func_name, string, enc_string);
+	printf("%s reached here...\n", func_name);
+	printf("%s:\t%s\n\t%s\n", func_name, string, enc_string);
 }
 
 void enclave1_print_string(char *string)

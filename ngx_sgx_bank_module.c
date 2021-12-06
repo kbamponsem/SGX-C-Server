@@ -256,7 +256,23 @@ void ngx_logout_func(ngx_http_request_t *r)
 
 	ngx_http_finalize_request(r, rc);
 }
+void string2hexString(char *input, char *output)
+{
+	int loop;
+	int i;
 
+	i = 0;
+	loop = 0;
+
+	while (input[loop] != '\0')
+	{
+		sprintf((char *)(output + i), "%02X", input[loop]);
+		loop += 1;
+		i += 2;
+	}
+	// insert NULL at the end of the output string
+	output[i++] = '\0';
+}
 void ngx_receive_id_and_key_func(ngx_http_request_t *r)
 {
 	ngx_int_t rc;
@@ -272,25 +288,25 @@ void ngx_receive_id_and_key_func(ngx_http_request_t *r)
 	char *req_body = (char *)r->request_body->bufs->buf->pos;
 
 	json_t *req_obj = json_loads(req_body, 0, NULL);
-	printf("%s\n", json_dumps(req_obj, 1));
 
 	big_int account_number = json_number_value(json_object_get(req_obj, "account_number"));
 	char *enc1_symmetric_key = (char *)json_string_value(json_object_get(req_obj, "enclave1_symmetric_key"));
 
-	// fflush(stdout);
-	// printf("Enclave1_pubkey: %s\n", base64_encode(base64_decode(enc1_symmetric_key)));
-	// fflush(stdout);
+	char *base64_string = base64_decode(enc1_symmetric_key);
+	char *hex_string = malloc(strlen(base64_string) * sizeof(char));
 
-	char *dec = base64_decode(enc1_symmetric_key);
-	if (dec != NULL)
+	string2hexString(base64_string, hex_string);
+
+	// printf("Account number: %lld\nEncoded key: %s\nDecoded key: %s\n", account_number, enc1_symmetric_key, hex_string);
+	if (hex_string != NULL)
 	{
-		sgx_status_t ret = enclave1_create_session(enclave1_eid, &RESULTS, account_number, dec);
+		sgx_status_t ret = enclave1_create_session(enclave1_eid, &RESULTS, account_number, hex_string);
 	}
 	// {
 	// 	// ret = enclave2_create_session(enclave2_eid, &RESULTS, account_number, enc2_symmetric_key);
 	// }
 
-	out.buf = generate_output(r, RESULTS, NULL, NULL);
+	out.buf = generate_output(r, 1, NULL, NULL);
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);
