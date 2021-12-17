@@ -1,7 +1,12 @@
+#ifndef NGX_SGX_BANK_MODULE_H__
+#define NGX_SGX_BANK_MODULE_H__
+
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include <malloc.h>
+
+#include <sgx_eid.h>
 
 #define STATUS(a) (a != 0 ? "FAILED" : "SUCCESSFUL")
 
@@ -9,13 +14,6 @@ sgx_enclave_id_t enclave1_eid = 1; /* Enclave ID 1 */
 sgx_enclave_id_t enclave2_eid = 2; /* Enclave ID 2 */
 
 /* This method sets up Content-Type (Application/JSON) */
-ngx_http_request_t *setup_content_type(ngx_http_request_t *r)
-{
-    r->headers_out.content_type.len = strlen("application/json");
-    r->headers_out.content_type.data = (u_char *)"application/json";
-
-    return r;
-}
 
 static char *ngx_create_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_login(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
@@ -25,18 +23,7 @@ static char *ngx_get_enclave_pub_keys(ngx_conf_t *cf, ngx_command_t *cmd, void *
 static char *ngx_get_balance(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_delete_account(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_operation(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type);
 static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *);
-
-void ngx_create_account_func(ngx_http_request_t *r);
-void ngx_delete_account_func(ngx_http_request_t *r);
-void ngx_login_func(ngx_http_request_t *r);
-void ngx_logout_func(ngx_http_request_t *r);
-void ngx_operation_func(ngx_http_request_t *r);
-void ngx_receive_id_and_key_func(ngx_http_request_t *r);
-void ngx_get_balance_func(ngx_http_request_t *r);
-
-ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type);
 
 static ngx_command_t ngx_sgx_bank_module_commands[] = {
     {ngx_string("get_enclave_pub_keys"),
@@ -148,63 +135,14 @@ static ngx_int_t ngx_http_create_enclaves(ngx_conf_t *cf)
     sgx_status_t ret;
     ret = enclave1_generate_keys(enclave1_eid, &KEY1_STATUS);
     ret = enclave2_generate_keys(enclave2_eid, &KEY2_STATUS);
-
-    printf("Enclave1 KEYS: %d\n", KEY1_STATUS);
-    printf("Enclave1 KEYS: %d\n", KEY2_STATUS);
-
+    
     if (KEY1_STATUS > 0 && KEY2_STATUS > 0)
+    {
+        printf("Initializing Enclave 1...\n");
+        printf("Initializing Enclave 2...\n");
         printf("Enclave Setup Successful!\n");
+    }
 
     return NGX_OK;
 }
-ngx_buf_t *generate_output(ngx_http_request_t *r, int STATUS, void *data, char *request_type)
-{
-    ngx_int_t rc;
-    big_int *acccount_number = 0UL;
-    if (data != NULL)
-    {
-        acccount_number = (big_int *)data;
-    }
-
-    json_t *response = json_object();
-
-    json_object_set_new(response, "message", json_string(STATUS == 1 ? "SUCCESS" : "ERROR"));
-    if (request_type != NULL)
-    {
-        if (strcmp(request_type, "/create-account") == 0 && STATUS == 1)
-        {
-            json_object_set_new(response, "account_number", json_integer(*acccount_number));
-        }
-    }
-    else
-        json_object_set_new(response, "data", json_string((char *)data));
-
-    u_char *response_string = (u_char *)json_dumps(response, 0);
-    size_t sz = strlen(response_string);
-    ngx_buf_t *b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
-
-    b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
-    if (b == NULL)
-    {
-        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-        return NULL;
-    }
-
-    b->pos = response_string;
-    b->last = response_string + sz;
-    b->last_buf = (r == r->main) ? 1 : 0;
-    b->last_in_chain = 1;
-
-    r->headers_out.status = STATUS == 1 ? NGX_HTTP_OK : 203;
-    r->headers_out.content_length_n = b->last - b->pos;
-
-    rc = ngx_http_send_header(setup_content_type(r));
-
-    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only)
-    {
-        ngx_http_finalize_request(r, rc);
-        return NULL;
-    }
-
-    return b;
-}
+#endif

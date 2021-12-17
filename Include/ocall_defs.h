@@ -1,3 +1,6 @@
+#ifndef OCALL_DEFS_H__
+#define OCALL_DEFS_H__
+
 #include <stdio.h>
 #include <string.h>
 #include <jansson.h>
@@ -6,6 +9,10 @@
 #include <openssl/bio.h>
 #include <openssl/err.h>
 
+size_t generate_account_number()
+{
+	return 1000000000 + rand() / (RAND_MAX / (2000000000 - 1000000000 + 1) + 1);
+}
 void print_addr(void *addr)
 {
 	printf("Addr: %p\n", addr);
@@ -40,3 +47,4 @@ void print_number(const char *func_name, big_int number)
 {
 	printf("%s: %lld\n", func_name, number);
 }
+#endif

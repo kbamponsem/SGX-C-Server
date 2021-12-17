@@ -38,7 +38,7 @@ SGX_DEBUG ?= 1
 CC=clang
 C++=clang++
 PROJ_DIR ?= /home/kwabena/TaLoS/src/nginx-1.11.0/nginx_sgx_bank
-ENCLAVES_DIR ?= Enclaves_u
+ENCLV_U_DIR ?= Enclaves_u
 SGX_SSL ?= /opt/intel/sgxssl
 
 ifeq ($(shell getconf LONG_BIT), 32)
@@ -133,25 +133,25 @@ Enclave_Config_File := Enclave/Enclave.config.xml
 untrusted:
 	@echo "Compiling untrusted code."
 
-	@mkdir -p $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted
-	@cp -r $(PROJ_DIR)/Include Enclave/UserEnclave.edl $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1
+	@mkdir -p $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Untrusted
+	@cp -r $(PROJ_DIR)/Include Enclave/UserEnclave.edl $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1
 
-	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted && \
+	@cd $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Untrusted && \
 	$(SGX_EDGER8R) --untrusted ../UserEnclave.edl \
 	--search-path ../Enclave \
 	--search-path $(SGX_SDK)/include \
 	--search-path $(SGX_SSL)/include \
 	--search-path ../Include  && rm ../UserEnclave.edl
 
-	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.o
-	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Untrusted/UserEnclave_u.c"
+	@$(CC) $(C_FLAGS) -c $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Untrusted/UserEnclave_u.c -o $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Untrusted/UserEnclave_u.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Untrusted/UserEnclave_u.c"
 
 
 ######## Enclave Objects ########
 trusted:
 	@echo "Compiling trusted code."
-	@cp -r Enclave $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1
-	@cd $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave && \
+	@cp -r Enclave $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1
+	@cd $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave && \
 	$(SGX_EDGER8R) --trusted UserEnclave.edl \
 	--search-path ../Enclave \
 	--search-path $(SGX_SDK)/include \
@@ -159,27 +159,27 @@ trusted:
 	--search-path ../Include 
 	
 	@cd -
-	@echo "GEN  =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c"
+	@echo "GEN  =>  $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/UserEnclave_t.c"
 
-	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o
-	@echo "CC   <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.c"
+	@$(CC) $(Enclave_C_Flags) -c $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/UserEnclave_t.c -o $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/UserEnclave_t.o
+	@echo "CC   <=  $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/UserEnclave_t.c"
 
-	@$(CXX) $(Enclave_C_Flags) -Wno-write-strings -c $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o 	
-	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.cpp"	
+	@$(CXX) $(Enclave_C_Flags) -Wno-write-strings -c $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/Enclave.cpp -o $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/Enclave.o 	
+	@echo "CXX  <=  $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/Enclave.cpp"	
 
-	@$(CXX) $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/UserEnclave_t.o  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name) \
+	@$(CXX) $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/UserEnclave_t.o  $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/Enclave.o -o $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/$(Enclave_Name) \
 	$(Enclave_Link_Flags) 
-	@echo "LINK =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name)"
+	@echo "LINK =>  $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/$(Enclave_Name)"
 
  
-	@$(SGX_ENCLAVE_SIGNER) sign -key $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave/Enclave_private.pem \
-	-enclave $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Name) \
-	-out $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Signed_Enclave_Name) \
-	-config $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Enclave_Config_File)
+	@$(SGX_ENCLAVE_SIGNER) sign -key $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave/Enclave_private.pem \
+	-enclave $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/$(Enclave_Name) \
+	-out $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/$(Signed_Enclave_Name) \
+	-config $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/$(Enclave_Config_File)
 
-	@echo "SIGN =>  $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/$(Signed_Enclave_Name)"
+	@echo "SIGN =>  $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/$(Signed_Enclave_Name)"
 
-	@rm -rf $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/Enclave
+	@rm -rf $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/Enclave
 
 nginx_sgx: untrusted trusted
 
@@ -187,4 +187,4 @@ nginx_sgx: untrusted trusted
 
 clean:
 	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
-	@rm -rf $(PROJ_DIR)/$(ENCLAVES_DIR)/Enclave1/*
+	@rm -rf $(PROJ_DIR)/$(ENCLV_U_DIR)/Enclave1/*

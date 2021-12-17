@@ -98,6 +98,7 @@ int create_account(char *username, char *password, big_int acc_number)
 
 int login(big_int account_number, char *password)
 {
+    print_string(__func__, NULL, NULL);
     for (size_t i = 0; i < all_users->size; i++)
     {
         if (all_users->users[i].account_number == account_number && strcmp(all_users->users[i].password, password) == 0)
