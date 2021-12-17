@@ -202,7 +202,7 @@ void ngx_receive_id_and_key_func(ngx_http_request_t *r)
 		return;
 	}
 
-	out.buf = generate_output(r, -1, NULL, NULL);
+	out.buf = generate_output(r, 0, NULL, NULL);
 	out.next = NULL;
 
 	rc = ngx_http_output_filter(r, &out);
